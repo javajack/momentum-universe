@@ -88,6 +88,57 @@ plan = A.plan_rebalance(cfg, capital=1_000_000, holdings={"BLISSGVS": 100})
 - **`emerging_momentum`** — velocity-weighted (1m/3m/6m/12m) scoring with
   breakout + volume-confirmed boosts; catches earlier-stage momentum.
 
+## Strategy comparison (last 10 years)
+
+Both strategies trade the same point-in-time `[201, 600]` small/mid-cap
+universe and share all regime/exit/sizing machinery — they differ only in the
+*scoring*. Head-to-head over **Jun 2016 → Jun 2026** (30-day rebalance,
+survivorship-free, real costs), vs simply holding the index:
+
+| | CAGR | Sharpe | Max DD | Total | ₹20L → |
+|---|--:|--:|--:|--:|--:|
+| **dual_momentum** | **+18.2%** | **0.78** | **−23.4%** | +432% | ₹1.06 Cr |
+| **emerging_momentum** | +16.7% | 0.70 | −26.2% | +368% | ₹93.7 L |
+| _NIFTY 50_ (passive) | +11.2% | — | — | — | ₹57.9 L |
+| _NIFTY Midcap 50_ (passive) | +17.6% | — | — | — | — |
+| _NIFTY Midcap 150_ (passive) | +18.9%\* | — | — | — | — |
+
+\* NIFTY Midcap 150 index history begins 2019, so that figure covers ~2019→2026,
+not the full decade; **NIFTY Midcap 50** is the like-for-like 10-year midcap
+benchmark. Both strategies **comfortably beat large-cap NIFTY 50** and roughly
+match the midcap indices — while adding a regime-based defensive overlay
+(gold/cash in stress) that passive index holding lacks.
+
+**Which wins where** — mean per-phase alpha vs NIFTY 50 across the 2013→2026
+market-phase timeline (reproduce via menu option 6):
+
+| Regime | dual_momentum | emerging_momentum |
+|---|--:|--:|
+| Bull markets (n=9) | +8.5% | **+10.3%** |
+| Bear / corrections (n=8) | **+6.1%** | +3.4% |
+| Sideways / recovery (n=2) | +5.0% | +5.4% |
+
+The trade-off is clear and consistent:
+
+- **emerging_momentum wins in bull markets** (+10.3% vs +8.5% alpha) — its
+  velocity + breakout scoring catches trends earlier, so it rips harder once
+  momentum establishes.
+- **dual_momentum defends far better in bears/corrections** (+6.1% vs +3.4%
+  alpha) — classic 12-1 momentum is steadier and less whippy in downturns.
+
+Over a full cycle the **better bear defense outweighs the bull edge**:
+`dual_momentum` ends with the higher CAGR (20.9% vs 19.0% over the full 13-year
+timeline), higher Sharpe (0.92 vs 0.82) and shallower drawdown (−25.0% vs
+−28.4%). `emerging_momentum` is the more aggressive, higher-beta choice — it
+shone in the recent 2026 stabilization (+9.6% vs +8.1% alpha).
+
+**`emerging_momentum` is the shipped default** (early-stage momentum is the
+project's headline idea); switch to `dual_momentum` from menu option 3 for the
+steadier, higher-Sharpe profile.
+
+> Educational/research figures only — survivorship-free backtests with modelled
+> costs, not live results. Past performance does not guarantee future results.
+
 ## Data provenance
 
 The universe data is a mirror of the public
