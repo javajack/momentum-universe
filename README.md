@@ -26,9 +26,10 @@ one-time). Then you get an interactive menu:
 3  Select strategy                 dual_momentum / emerging_momentum
 4  Select universe + rank range    v1/v2, e.g. ranks 201-600
 5  Backtest                        historical simulation
-6  Market / trigger check          current regime from latest data
-7  Rebalance (from inputs)         capital + holdings -> target + orders
-8  Swing research                  ryner / high_base / bake-off
+6  Market phases                   per-phase returns vs NIFTY, 2013 -> date
+7  Market / trigger check          current regime from latest data
+8  Rebalance (from inputs)         capital + holdings -> target + orders
+9  Swing research                  ryner / high_base / bake-off
 0  Exit
 ```
 
@@ -50,8 +51,10 @@ cache, so nothing sensitive is ever committed.
   regime detection with graduated equity/gold allocation, tiered stops,
   recovery modes, a point-in-time backtester, and a rebalance planner.
   - `fortress/actions/` — a small **pure-function layer** (selection, backtest,
-    market state, rebalance, credentials, universe update) that the CLI is a
-    thin shell over. Import and reuse it from scripts or notebooks.
+    market phases, market state, rebalance, credentials, universe update) that
+    the CLI is a thin shell over. Import and reuse it from scripts or notebooks.
+    The 2013→date market-phase timeline (incl. a data-driven re-segmentation of
+    the 2024-09 → 2026-04 tail) lives in `fortress/actions/phases.py`.
 - **`nse_universe/`** — a vendored, self-contained package that answers
   point-in-time NSE index membership (`Universe(version=...).members_df(...)`)
   over a DuckDB view of the committed parquet. No network needed for reads.
@@ -73,6 +76,7 @@ cfg = A.apply_selection(cfg, strategy="dual_momentum", rank_range=[201, 600])
 
 state = A.current_market_state(cfg)          # current regime from latest data
 result = A.run_backtest(cfg, "2013-01-01", "2026-01-01")
+report = A.run_market_phases(cfg)            # per-phase returns vs NIFTY
 plan = A.plan_rebalance(cfg, capital=1_000_000, holdings={"BLISSGVS": 100})
 ```
 

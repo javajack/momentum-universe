@@ -26,9 +26,10 @@ MENU = [
     ("3", "Select strategy", "dual_momentum / emerging_momentum"),
     ("4", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
     ("5", "Backtest", "historical simulation"),
-    ("6", "Market / trigger check", "current regime from latest data"),
-    ("7", "Rebalance (from inputs)", "capital + holdings -> target + orders"),
-    ("8", "Swing research", "ryner / high_base / bake-off"),
+    ("6", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
+    ("7", "Market / trigger check", "current regime from latest data"),
+    ("8", "Rebalance (from inputs)", "capital + holdings -> target + orders"),
+    ("9", "Swing research", "ryner / high_base / bake-off"),
     ("0", "Exit", ""),
 ]
 
@@ -102,6 +103,24 @@ class App:
             title=f"Backtest {start} → {end}", style="green",
         ))
 
+    def market_phases(self) -> None:
+        with console.status(f"[green]running {len(A.MARKET_PHASES)}-phase analysis ({self.config.active_strategy})... (~minutes)"):
+            rep = A.run_market_phases(self.config)
+        console.print(Panel(
+            f"Return [bold]{rep.overall_return:+.1%}[/bold]   CAGR [bold]{rep.cagr:.1%}[/bold]   "
+            f"Sharpe [bold]{rep.sharpe:.2f}[/bold]   MaxDD [bold]{rep.max_dd:.1%}[/bold]   "
+            f"₹{rep.initial_capital:,.0f} → ₹{rep.final_value:,.0f}",
+            title=f"Market Phases ({self.config.active_strategy})", style="green",
+        ))
+        t = Table("Phase", "Type", "Strat", "MaxDD", "NIFTY", "α", box=None)
+        for p in rep.phases:
+            nifty = f"{p.nifty_return:+.1%}" if p.nifty_return is not None else "n/a"
+            alpha = f"{p.alpha:+.1%}" if p.alpha is not None else "n/a"
+            acolor = "green" if (p.alpha or 0) >= 0 else "red"
+            t.add_row(p.name, p.phase_type, f"{p.strat_return:+.1%}",
+                      f"{p.max_dd:.1%}", nifty, f"[{acolor}]{alpha}[/{acolor}]")
+        console.print(t)
+
     def market_check(self) -> None:
         with console.status("[green]reading latest market state..."):
             ms = A.current_market_state(self.config)
@@ -145,8 +164,8 @@ class App:
             handlers = {
                 "1": self.configure_credentials, "2": self.universe_update,
                 "3": self.select_strategy, "4": self.select_universe,
-                "5": self.backtest, "6": self.market_check,
-                "7": self.rebalance, "8": self.swing,
+                "5": self.backtest, "6": self.market_phases,
+                "7": self.market_check, "8": self.rebalance, "9": self.swing,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")
