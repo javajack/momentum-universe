@@ -80,6 +80,49 @@ report = A.run_market_phases(cfg)            # per-phase returns vs NIFTY
 plan = A.plan_rebalance(cfg, capital=1_000_000, holdings={"BLISSGVS": 100})
 ```
 
+## Use the universe data for your own strategies
+
+The vendored `nse_universe` package is a standalone **point-in-time universe
+oracle** — it answers "who was in this index, at what rank, on this date"
+(survivorship-free), so you can build and test your own strategies on the same
+data the built-in strategies use.
+
+```python
+from datetime import date
+from nse_universe import Universe
+
+u = Universe(version="v2")            # v2 = momentum-grade; v1 = raw turnover
+u.indices()                           # nifty_50/100/200/500/1000, midcap_150,
+                                      #   smallcap_250, largecap_100  (add your own)
+u.members(date(2024, 1, 15), "midcap_150")      # point-in-time index members
+u.rank("SANSERA", date(2024, 1, 15))            # rank on a date  (-> 511)
+u.universe_at(date(2024, 1, 15))                # full ranked snapshot that day
+u.members_df(date(2023, 1, 1), date(2023, 12, 31), "nifty_1000")  # per-day membership
+u.walk(date(2024, 1, 1), date(2024, 12, 31), "midcap_150", freq="M")  # iterate in time
+u.health()                            # coverage: 2005 -> 2026-07, ~4,200 symbols
+```
+
+A **custom rank window** (e.g. small/mid ranks 201-600) is just a filter on
+`members_df` / `universe_at`. Named indices live in `config/indices.yml` — add
+your own rank bands freely.
+
+Two runnable examples:
+
+- **`examples/explore_universe.py`** — a tour of every query above.
+- **`examples/custom_strategy.py`** — a complete ~60-line template: a monthly
+  top-N momentum backtest on the [201,600] band using point-in-time membership +
+  prices, with no look-ahead. Swap in your own `score()` to test any idea (the
+  bundled version does ~+21.8% CAGR, 2018→2026).
+
+```bash
+.venv/bin/python examples/explore_universe.py
+.venv/bin/python examples/custom_strategy.py
+```
+
+For quick interactive exploration, run `examples/explore_universe.py`, or import
+`Universe` in a Python REPL / notebook. (Menu option 2, "Universe update", keeps
+the underlying data current from NSE's public feed.)
+
 ## Strategies
 
 - **`dual_momentum`** (default) — adaptive dual momentum: 12-1 NMS ranking with
