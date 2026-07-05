@@ -6,6 +6,7 @@ rendering. The CLI (`fortress.cli`) is a thin shell that gathers inputs, calls
 one action, and renders the result. Keeping logic here (not in the menu) makes
 every feature unit-testable and reusable from scripts or notebooks.
 """
+from . import universe_query
 from .selection import apply_selection
 from .backtest import run_backtest
 from .phases import run_market_phases, MARKET_PHASES
@@ -15,6 +16,7 @@ from .credentials import save_credentials
 from .universe_update import update_universe
 
 __all__ = [
+    "universe_query",
     "apply_selection",
     "run_backtest",
     "run_market_phases",

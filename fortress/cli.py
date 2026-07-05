@@ -23,13 +23,14 @@ console = Console()
 MENU = [
     ("1", "Configure Zerodha credentials", "optional — only for live features"),
     ("2", "Universe update", "rebuild / fetch latest NSE data"),
-    ("3", "Select strategy", "dual_momentum / emerging_momentum"),
-    ("4", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
-    ("5", "Backtest", "historical simulation"),
-    ("6", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
-    ("7", "Market / trigger check", "current regime from latest data"),
-    ("8", "Rebalance (from inputs)", "capital + holdings -> target + orders"),
-    ("9", "Swing research", "ryner / high_base / bake-off"),
+    ("3", "Universe query", "PIT members / rank / snapshot / coverage"),
+    ("4", "Select strategy", "dual_momentum / emerging_momentum"),
+    ("5", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
+    ("6", "Backtest", "historical simulation"),
+    ("7", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
+    ("8", "Market / trigger check", "current regime from latest data"),
+    ("9", "Rebalance (from inputs)", "capital + holdings -> target + orders"),
+    ("10", "Swing research", "ryner / high_base / bake-off"),
     ("0", "Exit", ""),
 ]
 
@@ -74,6 +75,35 @@ class App:
         console.print(f"[green]Universe rebuilt: {res.symbols} symbols, {res.rows:,} rows.[/green]")
         if res.fetched:
             console.print(f"[dim]steps: {res.steps}[/dim]")
+
+    def universe_query(self) -> None:
+        UQ = A.universe_query
+        v = Prompt.ask("Universe version", choices=["v1", "v2"],
+                       default=self.config.universe.version)
+        kind = Prompt.ask("Query", choices=["members", "rank", "snapshot", "indices", "health"],
+                          default="members")
+        if kind == "indices":
+            console.print("Named indices: " + ", ".join(UQ.list_indices(v)))
+            return
+        if kind == "health":
+            console.print(UQ.coverage(v))
+            return
+        d = _ask_date("As-of date", date.today())
+        if kind == "members":
+            idx = Prompt.ask("Index", choices=UQ.list_indices(v), default="nifty_500")
+            m = UQ.members_on(d, idx, v)
+            more = f"  ... (+{len(m) - 40})" if len(m) > 40 else ""
+            console.print(f"[green]{len(m)} members of {idx} on {d}:[/green]\n" + ", ".join(m[:40]) + more)
+        elif kind == "rank":
+            sym = Prompt.ask("Symbol").upper()
+            r = UQ.rank_of(sym, d, v)
+            console.print(f"rank({sym}, {d}) = [bold]{r if r is not None else 'not ranked'}[/bold]")
+        elif kind == "snapshot":
+            df = UQ.snapshot_on(d, v, top=20)
+            t = Table("Rank", "Symbol", "Metric (₹ turnover)", box=None)
+            for _, row in df.iterrows():
+                t.add_row(str(int(row["rank"])), row["symbol"], f"{row['metric_value']:,.0f}")
+            console.print(t)
 
     def select_strategy(self) -> None:
         s = Prompt.ask("Strategy", choices=list(A.selection.VALID_STRATEGIES),
@@ -163,9 +193,10 @@ class App:
             choice = Prompt.ask("\nSelect option", default="0")
             handlers = {
                 "1": self.configure_credentials, "2": self.universe_update,
-                "3": self.select_strategy, "4": self.select_universe,
-                "5": self.backtest, "6": self.market_phases,
-                "7": self.market_check, "8": self.rebalance, "9": self.swing,
+                "3": self.universe_query,
+                "4": self.select_strategy, "5": self.select_universe,
+                "6": self.backtest, "7": self.market_phases,
+                "8": self.market_check, "9": self.rebalance, "10": self.swing,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")

@@ -21,16 +21,17 @@ First launch builds a local DuckDB from the committed parquet (a few seconds,
 one-time). Then you get an interactive menu:
 
 ```
-1  Configure Zerodha credentials   optional — only for live features
-2  Universe update                 rebuild / fetch latest NSE data
-3  Select strategy                 dual_momentum / emerging_momentum
-4  Select universe + rank range    v1/v2, e.g. ranks 201-600
-5  Backtest                        historical simulation
-6  Market phases                   per-phase returns vs NIFTY, 2013 -> date
-7  Market / trigger check          current regime from latest data
-8  Rebalance (from inputs)         capital + holdings -> target + orders
-9  Swing research                  ryner / high_base / bake-off
-0  Exit
+1   Configure Zerodha credentials  optional — only for live features
+2   Universe update                rebuild / fetch latest NSE data
+3   Universe query                 PIT members / rank / snapshot / coverage
+4   Select strategy                dual_momentum / emerging_momentum
+5   Select universe + rank range   v1/v2, e.g. ranks 201-600
+6   Backtest                       historical simulation
+7   Market phases                  per-phase returns vs NIFTY, 2013 -> date
+8   Market / trigger check         current regime from latest data
+9   Rebalance (from inputs)        capital + holdings -> target + orders
+10  Swing research                 ryner / high_base / bake-off
+0   Exit
 ```
 
 ## Credentials & safety
@@ -119,9 +120,39 @@ Two runnable examples:
 .venv/bin/python examples/custom_strategy.py
 ```
 
-For quick interactive exploration, run `examples/explore_universe.py`, or import
-`Universe` in a Python REPL / notebook. (Menu option 2, "Universe update", keeps
-the underlying data current from NSE's public feed.)
+For quick interactive exploration, use **CLI menu option 3 ("Universe query")**
+(members / rank / snapshot / coverage as of any date), run
+`examples/explore_universe.py`, or import `Universe` in a REPL / notebook.
+
+### Universe versions: v1 vs v2
+
+The `version=` argument (also `config.yaml → universe.version`) selects *which
+ranking table* you query. Both rank every eligible stock by **median daily
+turnover over the prior 126 trading days** and keep the top 1,000 — they differ
+in *what is allowed into the ranking*:
+
+- **`v1`** (`universe_rank`) — **raw turnover ranking**, index-style. The only
+  gate is a full 126-day history (so fresh IPOs can't spike in). Includes
+  everything liquid, warts and all: surveillance names, erratic-liquidity and
+  circuit-locked stocks, sub-₹50 names.
+
+- **`v2`** (`universe_v2`) — **momentum-grade**: the same turnover ranking, but
+  only *after* a quality filter stack that removes names which pollute momentum
+  signals. A stock must pass **all** of:
+
+  | Filter | Threshold |
+  |---|---|
+  | Listing history | ≥ 252 trading days (~1 year) |
+  | Traded days (last 60d) | ≥ 95% |
+  | Median turnover (60d / 126d) | ≥ ₹50 L / ₹25 L |
+  | Close price | ≥ ₹50 (no penny stocks) |
+  | Turnover consistency (CV, 126d) | ≤ 3.0 (no erratic liquidity) |
+  | Circuit-hit days (last 60d) | ≤ 5% |
+  | NSE GSM / ASM surveillance | must be clear |
+
+**Use `v2` for momentum / positional strategies** — it's a pre-cleaned candidate
+pool (the built-in strategies default to it). Use `v1` for the unfiltered,
+index-style liquidity ranking.
 
 ## Strategies
 
