@@ -7,6 +7,7 @@ one action, and renders the result. Keeping logic here (not in the menu) makes
 every feature unit-testable and reusable from scripts or notebooks.
 """
 from . import universe_query
+from . import swing
 from .selection import apply_selection
 from .backtest import run_backtest
 from .phases import run_market_phases, MARKET_PHASES
@@ -17,6 +18,7 @@ from .universe_update import update_universe
 
 __all__ = [
     "universe_query",
+    "swing",
     "apply_selection",
     "run_backtest",
     "run_market_phases",

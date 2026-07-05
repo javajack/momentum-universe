@@ -29,8 +29,8 @@ one-time). Then you get an interactive menu:
 6   Backtest                       historical simulation
 7   Market phases                  per-phase returns vs NIFTY, 2013 -> date
 8   Market / trigger check         current regime from latest data
-9   Rebalance (from inputs)        capital + holdings -> target + orders
-10  Swing research                 ryner / high_base / bake-off
+9   Momentum allocation / rebalance  capital + N stocks -> momentum picks + orders
+10  Swing stock suggestions          runs ryner / high_base scanners, shows stocks
 0   Exit
 ```
 

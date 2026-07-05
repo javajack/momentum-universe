@@ -29,8 +29,8 @@ MENU = [
     ("6", "Backtest", "historical simulation"),
     ("7", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
     ("8", "Market / trigger check", "current regime from latest data"),
-    ("9", "Rebalance (from inputs)", "capital + holdings -> target + orders"),
-    ("10", "Swing research", "ryner / high_base / bake-off"),
+    ("9", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
+    ("10", "Swing stock suggestions", "run ryner / high_base scanners, show stocks"),
     ("0", "Exit", ""),
 ]
 
@@ -166,9 +166,11 @@ class App:
 
     def rebalance(self) -> None:
         capital = float(Prompt.ask("Capital to deploy (₹)", default="1000000"))
+        top_n = int(Prompt.ask("Number of momentum stocks (custom allocation)",
+                               default=str(self.config.position_sizing.target_positions)))
         holdings = _ask_holdings()
-        with console.status("[green]planning rebalance..."):
-            plan = A.plan_rebalance(self.config, capital, holdings=holdings)
+        with console.status("[green]planning momentum allocation..."):
+            plan = A.plan_rebalance(self.config, capital, holdings=holdings, top_n=top_n)
         console.print(f"[bold]Target portfolio[/bold]  as of {plan.as_of}  regime {plan.regime}")
         tt = Table("Symbol", "Wt%", "Qty", "Value ₹", box=None)
         for t in plan.targets:
@@ -181,9 +183,15 @@ class App:
             console.print(ot)
 
     def swing(self) -> None:
-        console.print("[dim]Swing research tools (research-only, on the vendored data):[/dim]")
-        console.print("  Run directly, e.g.:  .venv/bin/python tools/swing_bakeoff.py --start 2021-05-01 --end 2026-05-01")
-        console.print("  or                   .venv/bin/python tools/high_base_scan.py")
+        kind = Prompt.ask("Swing scanner", choices=["high_base", "ryner"], default="high_base")
+        top = int(Prompt.ask("Show top N", default="15"))
+        d = _ask_date("As-of date", date.today())
+        # The scanners print their own candidate table (symbols + stops + returns)
+        # and return the list; run them live on the vendored data.
+        if kind == "ryner":
+            A.swing.run_ryner_scan(as_of=d, top=top)
+        else:
+            A.swing.run_high_base_scan(as_of=d, top=top)
 
     # ---- loop --------------------------------------------------------------
     def run(self) -> None:

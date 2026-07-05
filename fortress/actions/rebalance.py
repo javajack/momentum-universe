@@ -46,9 +46,11 @@ def plan_rebalance(
     capital: float,
     holdings: Optional[Dict[str, int]] = None,
     as_of: Optional[date] = None,
+    top_n: Optional[int] = None,
 ) -> RebalancePlan:
     """Compute the target portfolio for `capital` and the orders vs `holdings`
     (symbol -> quantity). `as_of` defaults to the latest available data date.
+    `top_n` overrides the target number of positions (custom allocation).
     Pure: no prompts, no network, no broker.
     """
     from fortress.universe import Universe
@@ -56,6 +58,15 @@ def plan_rebalance(
     from fortress.backtest import BacktestMarketDataAdapter
     from fortress.momentum_engine import MomentumEngine
     from fortress.strategy.registry import StrategyRegistry
+
+    if top_n:
+        n = int(top_n)
+        sizing = config.position_sizing.model_copy(update={
+            "target_positions": n,
+            "min_positions": max(5, n - 3),
+            "max_positions": n + 3,
+        })
+        config = config.model_copy(update={"position_sizing": sizing})
 
     holdings = holdings or {}
     u = config.universe
