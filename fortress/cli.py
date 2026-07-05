@@ -29,8 +29,9 @@ MENU = [
     ("6", "Backtest", "historical simulation"),
     ("7", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
     ("8", "Market / trigger check", "current regime from latest data"),
-    ("9", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
-    ("10", "Swing stock suggestions", "run ryner / high_base scanners, show stocks"),
+    ("9", "Momentum scan", "top-N momentum-ranked stocks + metrics"),
+    ("10", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
+    ("11", "Swing stock suggestions", "run ryner / high_base scanners, show stocks"),
     ("0", "Exit", ""),
 ]
 
@@ -164,6 +165,25 @@ class App:
             title=f"Market state as of {ms.as_of}", style=color,
         ))
 
+    def momentum_scan(self) -> None:
+        top = int(Prompt.ask("Show top N", default="20"))
+        with console.status(f"[green]ranking universe ({self.config.active_strategy})..."):
+            res = A.momentum_scan(self.config, top_n=top)
+        console.print(Panel(
+            f"strategy [bold]{res.strategy}[/bold]   universe [bold]v{res.version[-1]} "
+            f"ranks {list(res.rank_range)}[/bold]   as of [bold]{res.as_of}[/bold]   "
+            f"[dim]{res.total_passing} names passed entry filters[/dim]",
+            title="Momentum scan", style="cyan",
+        ))
+        t = Table("#", "Ticker", "Sector", "Score", "52W%", "6M", "12M", "₹Cr/day", "200SMA", box=None)
+        for i, s in enumerate(res.stocks, 1):
+            t.add_row(
+                str(i), s.ticker, (s.sector or "")[:16], f"{s.score:.2f}",
+                f"{s.high_52w_proximity:.0%}", f"{s.return_6m:+.0%}", f"{s.return_12m:+.0%}",
+                f"{s.daily_turnover / 1e7:.1f}", "✓" if s.above_200sma else "·",
+            )
+        console.print(t)
+
     def rebalance(self) -> None:
         capital = float(Prompt.ask("Capital to deploy (₹)", default="1000000"))
         top_n = int(Prompt.ask("Number of momentum stocks (custom allocation)",
@@ -204,7 +224,8 @@ class App:
                 "3": self.universe_query,
                 "4": self.select_strategy, "5": self.select_universe,
                 "6": self.backtest, "7": self.market_phases,
-                "8": self.market_check, "9": self.rebalance, "10": self.swing,
+                "8": self.market_check, "9": self.momentum_scan,
+                "10": self.rebalance, "11": self.swing,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")

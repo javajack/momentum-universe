@@ -9,6 +9,7 @@ every feature unit-testable and reusable from scripts or notebooks.
 from . import universe_query
 from . import swing
 from .selection import apply_selection
+from .momentum_scan import momentum_scan
 from .backtest import run_backtest
 from .phases import run_market_phases, MARKET_PHASES
 from .market_state import current_market_state
@@ -20,6 +21,7 @@ __all__ = [
     "universe_query",
     "swing",
     "apply_selection",
+    "momentum_scan",
     "run_backtest",
     "run_market_phases",
     "MARKET_PHASES",
