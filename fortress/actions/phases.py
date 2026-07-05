@@ -1,10 +1,11 @@
 """Market-phase analysis — run the strategy across labelled market regimes.
 
 `MARKET_PHASES` is a hand-curated timeline of Indian-market regimes. Phases from
-2013-2024 are the established set; the 2024-09 → 2026-04 tail was re-segmented
-from the actual NIFTY 50 path (peak/trough turning points) into five distinct
-phases rather than one long lump. Boundaries end at the NIFTY benchmark's last
-date so per-phase alpha stays computable.
+2013-2024 are the established set; the 2024-09 → 2026-06 tail was re-segmented
+from the actual NIFTY 50 path (peak/trough turning points) into six distinct
+phases rather than one long lump. The benchmark data is refreshed through
+2026-07, so the final phase runs to 2026-06-30 with per-phase alpha computable
+throughout.
 """
 from __future__ import annotations
 
@@ -39,7 +40,8 @@ MARKET_PHASES = [
     ("2025 Recovery Rally", "2025-03-04", "2025-06-27", "Bullish"),        # +16% off the March low
     ("Mid-2025 Consolidation", "2025-06-27", "2025-10-01", "Sideways"),    # choppy, dip to 24363 then back
     ("Late-2025 Bull Run", "2025-10-01", "2026-01-02", "Bullish"),         # to fresh highs 26329
-    ("Early-2026 Correction", "2026-01-02", "2026-04-17", "Bearish→Recovery"),  # -15.2% to 22331, partial bounce
+    ("Early-2026 Correction", "2026-01-02", "2026-03-30", "Bearish"),       # peak 26329 -> trough 22331 (-15.2%)
+    ("2026 Stabilization", "2026-03-30", "2026-06-30", "Sideways→Recovery"),  # bounce + choppy ~23.0-24.6k range
 ]
 
 

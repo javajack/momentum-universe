@@ -283,7 +283,7 @@ adaptive_lookback:
 # - "dual_momentum"     (alias: keystone) — proven baseline, adaptive dual momentum
 # - "emerging_momentum" (alias: vanguard) — velocity + breakout + volume; catches
 #                                            stocks transitioning into momentum (default)
-active_strategy: "dual_momentum"
+active_strategy: "emerging_momentum"
 
 # Emerging Momentum strategy: catches "about to gain" momentum via:
 #   - velocity-weighted NMS (1m+3m+6m+12m), more recent emphasis
