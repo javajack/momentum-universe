@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "momentum-universe"
+version = "1.0.0"
+description = "Point-in-time momentum trading research for Indian equities: adaptive dual/emerging momentum strategy + a self-contained NSE universe oracle, with backtesting, market-regime analysis, and rebalance planning."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Rakesh Waghela" }]
+
+# Pinned to the validated working set (floors match the versions the full
+# system — strategy engine + vendored nse_universe — was tested on).
+dependencies = [
+    "pandas>=3.0.2",
+    "numpy>=2.4.0",
+    "pyarrow>=23.0.0",
+    "duckdb>=1.5.0",
+    "pydantic>=2.13.0",
+    "pyyaml>=6.0.3",
+    "pytz>=2026.1",
+    "click>=8.3.0",
+    "rich>=15.0.0",
+    "questionary>=2.1.0",
+    "tqdm>=4.67.0",
+    "curl-cffi>=0.15.0",
+    "yfinance>=1.3.0",
+    "fastapi>=0.136.0",
+    "uvicorn[standard]>=0.44.0",
+    "kiteconnect>=5.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+momentum-universe = "fortress.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fortress*", "nse_universe*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-q --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

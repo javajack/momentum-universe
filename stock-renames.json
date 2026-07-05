@@ -1,0 +1,71 @@
+{
+  "_comment": "ISIN-continuity renames/drops not reflected in nse-universe rank file (nse-universe ingests EQ series only and does not track name changes / EQ->BE surveillance moves / delistings). Applied in fortress/universe.py when as_of >= effective: 'to' rewrites the ticker, 'to': null drops it (untradeable on Kite NSE EQ). Verify entries against the latest NSE bhavcopy (raw zips under data/raw/, regenerable via the Universe Update pipeline) by ISIN. EQ->BE (Trade-to-Trade) names are NOT in the Kite NSE EQ instruments dump, so they must be dropped or they raise 'Unknown symbol' on cache update. After adding/removing entries, optionally rerun tools/build_sectors.py so any new ticker inherits a sector classification.",
+  "renames": {
+    "INFIBEAM": {
+      "to": "CCAVENUE",
+      "isin": "INE483S01020",
+      "effective": "2026-02-03",
+      "note": "Infibeam Avenues -> AvenueSai Ltd"
+    },
+    "SEQUENT": {
+      "to": "VIYASH",
+      "isin": "INE807F01027",
+      "effective": "2026-01-23",
+      "note": "Sequent Scientific -> Viyash Scientific Ltd"
+    },
+    "E2E": {
+      "to": null,
+      "isin": "INE255Z01019",
+      "effective": "2026-02-24",
+      "note": "Moved EQ -> BE (Trade-to-Trade); not in Kite NSE EQ instruments dump"
+    },
+    "CIGNITITEC": {
+      "to": null,
+      "isin": "INE675C01017",
+      "effective": "2026-05-15",
+      "note": "Cigniti Technologies delisted - ISIN absent from NSE bhavcopy after last EQ trade 2026-05-14"
+    },
+    "STLTECH": {
+      "to": null,
+      "isin": "INE089C01029",
+      "effective": "2026-05-14",
+      "note": "Sterlite Technologies moved EQ -> BE (Trade-to-Trade) 2026-05-14; not in Kite NSE EQ dump. Defensive: also dropped from [201,600] by June rank once BE killed turnover"
+    },
+    "DBREALTY": {
+      "to": null,
+      "isin": "INE879I01012",
+      "effective": "2026-05-19",
+      "note": "D B Realty -> Valor Estate Ltd, also moved EQ -> BE (Trade-to-Trade) 2026-05-19; not in Kite NSE EQ dump"
+    },
+    "IDEAFORGE": {
+      "to": null,
+      "isin": "INE349Y01013",
+      "effective": "2026-05-19",
+      "note": "ideaForge Technology moved EQ -> BE (Trade-to-Trade) 2026-05-19; not in Kite NSE EQ dump"
+    },
+    "JAIBALAJI": {
+      "to": null,
+      "isin": "INE091G01026",
+      "effective": "2026-05-19",
+      "note": "Jai Balaji Industries moved EQ -> BE (Trade-to-Trade) 2026-05-19; not in Kite NSE EQ dump"
+    },
+    "KRN": {
+      "to": null,
+      "isin": "INE0Q3J01015",
+      "effective": "2026-05-19",
+      "note": "KRN Heat Exchanger & Refrigeration moved EQ -> BE (Trade-to-Trade) 2026-05-19; not in Kite NSE EQ dump"
+    },
+    "QPOWER": {
+      "to": null,
+      "isin": "INE0SII01026",
+      "effective": "2026-05-19",
+      "note": "Quality Power Electrical Equipment moved EQ -> BE (Trade-to-Trade) 2026-05-19; not in Kite NSE EQ dump"
+    },
+    "STYLEBAAZA": {
+      "to": null,
+      "isin": "INE01FR01028",
+      "effective": "2026-05-19",
+      "note": "Baazar Style Retail moved EQ -> BE (Trade-to-Trade) 2026-05-19; not in Kite NSE EQ dump"
+    }
+  }
+}
