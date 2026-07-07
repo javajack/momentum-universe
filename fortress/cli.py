@@ -32,6 +32,7 @@ MENU = [
     ("9", "Momentum scan", "top-N momentum-ranked stocks + metrics"),
     ("10", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
     ("11", "Swing allocation plan", "capital -> 3+2 slot split, qty + rotation days"),
+    ("12", "Emerging momentum scan", "rank-climbing + early momentum (pre-run names)"),
     ("0", "Exit", ""),
 ]
 
@@ -246,6 +247,30 @@ class App:
             title="Suggested rotation days", style="yellow",
         ))
 
+    def emerging_scan(self) -> None:
+        top = int(Prompt.ask("Show top N", default="15"))
+        with console.status("[green]scanning rank trajectories + early momentum (~2-3 min)..."):
+            res = A.emerging_scan(self.config, top_n=top)
+        console.print(Panel(
+            f"universe [bold]v{res.version[-1]}[/bold]   band [bold]ranks {res.band[0]}-{res.band[1]}[/bold]   "
+            f"as of [bold]{res.as_of}[/bold]   [dim]{res.candidates_scanned} rank-climbers scanned, "
+            f"{res.total_passing} passed early-momentum filters[/dim]\n"
+            f"[dim]stocks EARLY in a move (liquidity rank climbing + breaking toward highs, "
+            f"12m return capped) — the pre-run complement to menu 9. Diligence each pick before acting.[/dim]",
+            title="Emerging momentum scan", style="cyan",
+        ))
+        t = Table("#", "Ticker", "Sector", "Rank 2y→now", "3M", "6M", "12M",
+                  "52W%", "Accel", "Vol", "₹Cr/day", box=None)
+        for i, s in enumerate(res.stocks, 1):
+            climb = f"{s.rank_2y if s.rank_2y is not None else 'new'}→{s.rank_now}"
+            t.add_row(
+                str(i), s.symbol, (s.sector or "")[:14], climb,
+                f"{s.ret_3m_pct:+.0f}%", f"{s.ret_6m_pct:+.0f}%", f"{s.ret_12m_pct:+.0f}%",
+                f"{s.prox_52w_high:.2f}", f"{s.accel_pct:+.0f}%", f"{s.volatility:.2f}",
+                f"{s.daily_turnover / 1e7:.0f}",
+            )
+        console.print(t)
+
     # ---- loop --------------------------------------------------------------
     def run(self) -> None:
         while True:
@@ -259,6 +284,7 @@ class App:
                 "6": self.backtest, "7": self.market_phases,
                 "8": self.market_check, "9": self.momentum_scan,
                 "10": self.rebalance, "11": self.swing,
+                "12": self.emerging_scan,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")

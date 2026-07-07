@@ -190,6 +190,46 @@ def build_server():
         }
 
     @mcp.tool()
+    def emerging_scan(top_n: int = 15) -> dict:
+        """Stocks EARLY in a momentum move (the pre-run complement to
+        momentum_scan). Combines a point-in-time LIQUIDITY-RANK climb (turnover
+        rank ~2y ago -> now) with EARLY price momentum (above 200SMA, breaking
+        toward the 52-week high, 12-month return capped so already-parabolic
+        names are excluded). Returns a ranked shortlist with each stock's rank
+        trajectory, 3/6/12-month returns, 52w-high proximity, acceleration,
+        volatility and turnover. Intended workflow: call this, then run your
+        own fundamental/shareholding/news diligence on each pick before acting
+        — the scan is purely technical."""
+        from fortress import actions as A
+        with _quiet_stdout():
+            res = A.emerging_scan(_load_config(), top_n=top_n)
+        return {
+            "universe_version": res.version,
+            "as_of": _to_jsonable(res.as_of),
+            "rank_band": list(res.band),
+            "candidates_scanned": res.candidates_scanned,
+            "total_passing": res.total_passing,
+            "stocks": [{
+                "ticker": s.symbol,
+                "sector": s.sector,
+                "rank_now": s.rank_now,
+                "rank_1y": s.rank_1y,
+                "rank_2y": s.rank_2y,
+                "new_entrant": s.new_entrant,
+                "rank_climb": s.climb,
+                "price": s.price,
+                "ret_3m_pct": s.ret_3m_pct,
+                "ret_6m_pct": s.ret_6m_pct,
+                "ret_12m_pct": s.ret_12m_pct,
+                "prox_52w_high": s.prox_52w_high,
+                "accel_pct": s.accel_pct,
+                "volatility": s.volatility,
+                "daily_turnover": s.daily_turnover,
+                "score": s.score,
+            } for s in res.stocks],
+        }
+
+    @mcp.tool()
     def momentum_allocation(
         capital: float,
         top_n: Optional[int] = None,

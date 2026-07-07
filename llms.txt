@@ -56,7 +56,14 @@ Append to `~/.codex/config.toml`:
 - momentum_scan(top_n=20)
   Top-N ranked momentum stocks under the active strategy (default
   regime_switched_momentum) with score, 52w-high proximity, returns,
-  volatility, turnover.
+  volatility, turnover. These tend to be names that have ALREADY run.
+- emerging_scan(top_n=15)
+  The pre-run complement: stocks EARLY in a momentum move. Combines a
+  point-in-time LIQUIDITY-RANK climb (turnover rank ~2y ago -> now) with
+  early price momentum (above 200SMA, breaking toward 52w high, 12-month
+  return capped so already-parabolic names are excluded). Returns each
+  stock's rank trajectory, 3/6/12m returns, proximity, acceleration,
+  volatility, turnover. Purely technical — diligence each pick (below).
 - momentum_allocation(capital, top_n?, holdings?)
   Momentum sleeve: target portfolio (weights, quantities) and buy/sell
   orders, optionally diffed against current holdings {symbol: qty}.
@@ -73,13 +80,36 @@ Append to `~/.codex/config.toml`:
 ## Suggested diligence workflow
 
 1. `market_state()` — know the regime before judging picks.
-2. `swing_allocation_plan(...)` and/or `momentum_allocation(...)` — get the
-   technical picks with quantities and stops.
+2. Get the technical picks:
+   - `momentum_scan` — established-momentum leaders (often already run).
+   - `emerging_scan` — the pre-run complement (rank climbing + early momentum).
+   - `swing_allocation_plan` / `momentum_allocation` — sized deployment plans.
 3. Per ticker: `stock_snapshot` + `universe_lookup` for technical context,
    then YOUR research — earnings quality, promoter pledges/shareholding
    changes, pending corporate actions, regulatory news, valuation sanity.
 4. Report confirm/veto per pick with reasons; never resize positions beyond
    the plan's quantities — sizing and stops are the system's domain.
+
+### Auto-diligence pattern (emerging_scan -> per-pick diligence)
+
+An LLM client (Claude Code / Codex) can chain this into a repeatable
+"find-and-vet" pass:
+
+  a. Call `emerging_scan(top_n=N)` to get the ranked early-momentum shortlist.
+  b. For EACH returned ticker, run a full 12-point diligence — business & moat,
+     momentum catalyst, earnings quality & GROWTH durability, balance sheet,
+     cash flow (OCF vs PAT), valuation-vs-growth (is there still ROOM?),
+     shareholding (promoter trend / PLEDGE / FII-DII-MF flows), insider/deals,
+     news/rumors/management actions, red flags / bear thesis, corporate
+     calendar, verdict — using your fundamental data sources (e.g. a StockEdge
+     MCP: search the company by NAME, then pull shareholding, results/news,
+     P&L/ratios; plus web search for rumors and management actions).
+  c. Because "emerging" catches low-quality micro-cap pops as well as genuine
+     early growers, weight CASH-FLOW QUALITY and PLEDGE heavily — they are the
+     sharpest separators. Rank picks by conviction and surface every red flag.
+
+  Tip: dispatch one diligence sub-agent per ticker in parallel so the briefs
+  come back concurrently, then synthesize a ranked comparison.
 
 ## Caveats for agents
 
