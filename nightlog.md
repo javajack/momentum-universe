@@ -826,4 +826,68 @@ One portfolio experiment (`high_base_52w` + `rsi2_pullback` independent-accounts
 
 ---
 
+## Part 13 — ₹5L single-account deployment: subperiod robustness + slot-partition study (2026-07-07)
+
+Answered two Part 12 open questions with fresh trades regenerated through
+2026-07-01 (`plans/swing_bakeoff_trades_2021-05-01_2026-07-01_pair2026.csv`,
+same engine, solo results match Part 4: hb PF 1.47, rsi2 PF 1.17 @ 35bp).
+
+### 13.1 Subperiod robustness (the walk-forward answer) — WARNING
+
+Split at 2024-01-01, exits-based, independent 5+5 ledgers @ 35bp:
+
+| Segment | hb solo | rsi2 solo | pair (1M) | monthly corr |
+|---|---|---|---|---|
+| early 2021-05→2023-12 | PF 2.00, +₹522k | PF 1.18, +₹248k | PF 1.40, Sharpe 1.58 | +0.18 |
+| recent 2024-01→2026-07 | **PF 0.90, −₹49k** | PF 1.15, +₹200k | PF 1.09, Sharpe 0.43 | **+0.42** |
+
+`high_base_52w` was a net loser for 2.5 recent years (only the 2026 rally
+pulled it back); the pair's correlation more than doubled; at 60bp the recent
+pair is negative (−₹80k). The Part 11 pair deployment does NOT validate
+cleanly out-of-window at full slot counts.
+
+### 13.2 Slot-partition study (₹5L, one account, 5 × ₹100k slots)
+
+Simulated: shared 5-slot pool (both strategies compete, round-robin priority),
+fixed partitions 3+2 / 2+3, and both solos at 5 slots. Full window @ 35bp:
+
+| Deployment | PF | total | Sharpe | MaxDD |
+|---|--:|--:|--:|--:|
+| **split hb×3 + rsi2×2** | **1.50** | **+₹826k** | **+1.79** | **−9.4%** |
+| split hb×2 + rsi2×3 | 1.39 | +₹783k | +1.61 | −13.2% |
+| shared 5-slot pool | 1.42 | +₹704k | +1.62 | −13.2% |
+| solo hb×5 | 1.47 | +₹473k | +1.70 | −19.9% |
+| solo rsi2×5 | 1.17 | +₹448k | +1.01 | −23.7% |
+
+**Both partitions beat both solos on the same capital.** Mechanism: entries
+are rank-ordered, so a tighter slot cap acts as a signal-quality filter —
+rsi2 capped at 2 slots keeps only its most-oversold concurrent signals
+(positive EVERY year incl. 2022, vs −₹77k for rsi2×5 in 2022); hb rarely
+fills >2-3 slots anyway (hb×3 made MORE than hb×5 in 2022: +₹142k vs +₹93k —
+slots 4-5 were net losers). The shared pool underperforms the fixed partition
+because rsi2 signals ~4× more often and crowds it (630 vs 280 fills).
+
+hb3+rsi2×2 subperiods: early PF 1.68 / recent PF 1.28 (+₹200k, Sharpe 1.25,
+MaxDD −18.1%) @ 35bp; recent still positive @ 60bp (PF 1.12, +₹96k).
+Per-year @ 35bp: no losing year in the window (worst: 2025 +₹4.7k).
+
+### 13.3 Deployment recommendation (supersedes Part 11/12 sizing)
+
+**For a ₹5L single swing account: run high_base_52w with 3 slots and
+rsi2_pullback with 2 slots, ₹100k per trade, fixed partition (not a shared
+pool).** Expected on the bake-off window: ~+₹8.3L over 5.2y @ 35bp
+(~+165% on fixed notional), MaxDD ~−9% (full) / −18% (recent regime),
+cost-robust to 60bp. Caveats: fixed-notional (no compounding), partition
+chosen from 5 candidate configs on this window (mild selection bias, though
+2+3 also beats both solos, so the effect is structural), and hb remains
+regime-concentrated — the 2024-25 stretch was carried by rsi2×2.
+
+Re-run: `tools/swing_bakeoff.py --start 2021-05-01 --end 2026-07-01
+--strategies high_base_52w,rsi2_pullback` for solos; the shared-pool /
+partition simulator lives in the session scratchpad (swing_shared_pool.py,
+swing_split_subperiods.py) — promote to `tools/` if this becomes the shipped
+deployment.
+
+---
+
 _End of nightlog._
