@@ -30,6 +30,7 @@ dependencies = [
     "fastapi>=0.136.0",
     "uvicorn[standard]>=0.44.0",
     "kiteconnect>=5.1.0",
+    "mcp>=1.2.0",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,93 @@
+# momentum-universe — LLM integration guide
+
+This repository is a point-in-time momentum + swing research system for
+Indian equities (NSE). It answers the PURELY TECHNICAL questions — what to
+buy, how much, suggested stops, and rotation horizons — from ~13 years of
+vendored data, credential-free. It deliberately models NO fundamentals,
+shareholding, news, or valuations. That diligence layer is YOUR job as the
+LLM: take the system's picks, research each ticker with your own tools
+(fundamentals APIs, web search, filings), and confirm or veto.
+
+## One-time machine setup
+
+    git clone <repo-url> momentum-universe
+    cd momentum-universe
+    ./start.sh        # bootstraps .venv, installs deps, builds the local DuckDB
+                      # (exit the interactive menu once it loads — setup is done)
+
+## MCP server
+
+Read-only stdio server exposing the allocation stack:
+
+    .venv/bin/python -m fortress.mcp_server
+
+The server resolves all paths from its own location — the client's working
+directory does not matter.
+
+### Claude Code
+
+The repo ships a project-scoped `.mcp.json`; opening Claude Code inside the
+repo detects the "momentum-universe" server automatically (approve when
+prompted). To register it globally (usable from any directory):
+
+    claude mcp add momentum-universe --scope user -- \
+      /ABS/PATH/TO/momentum-universe/.venv/bin/python -m fortress.mcp_server
+
+### Codex
+
+Append to `~/.codex/config.toml`:
+
+    [mcp_servers.momentum_universe]
+    command = "/ABS/PATH/TO/momentum-universe/.venv/bin/python"
+    args = ["-m", "fortress.mcp_server"]
+
+### Any other MCP client (generic stdio config)
+
+    command: /ABS/PATH/TO/momentum-universe/.venv/bin/python
+    args:    ["-m", "fortress.mcp_server"]
+
+## Tools
+
+- swing_allocation_plan(capital=500000, hb_slots=3, rsi_slots=2, as_of?)
+  Swing sleeve: partitions capital into equal slots across the two adopted
+  scanners (high_base_52w breakouts x3, rsi2_pullback mean-reversion x2 —
+  the validated best split). Returns per-slot ticker, quantity, rupee
+  allocation, suggested stop, and forced-rotation horizon in trading days.
+- momentum_scan(top_n=20)
+  Top-N ranked momentum stocks under the active strategy (default
+  regime_switched_momentum) with score, 52w-high proximity, returns,
+  volatility, turnover.
+- momentum_allocation(capital, top_n?, holdings?)
+  Momentum sleeve: target portfolio (weights, quantities) and buy/sell
+  orders, optionally diffed against current holdings {symbol: qty}.
+- market_state()
+  Current regime (BULLISH/NORMAL/CAUTION/DEFENSIVE), VIX, NIFTY 52-week
+  position, stress score, target equity/gold/cash split.
+- universe_lookup(symbol, on_date?)
+  Point-in-time turnover rank and whether the symbol is inside the
+  strategies' scan band (ranks 201-600 of the v2 momentum-grade universe).
+- stock_snapshot(symbol)
+  Per-ticker technical context: 1/3/6/12-month returns, 200SMA status,
+  52w-high proximity, ATR(14), 20-day average turnover.
+
+## Suggested diligence workflow
+
+1. `market_state()` — know the regime before judging picks.
+2. `swing_allocation_plan(...)` and/or `momentum_allocation(...)` — get the
+   technical picks with quantities and stops.
+3. Per ticker: `stock_snapshot` + `universe_lookup` for technical context,
+   then YOUR research — earnings quality, promoter pledges/shareholding
+   changes, pending corporate actions, regulatory news, valuation sanity.
+4. Report confirm/veto per pick with reasons; never resize positions beyond
+   the plan's quantities — sizing and stops are the system's domain.
+
+## Caveats for agents
+
+- All tools are read-only and run on vendored data (refreshed via CLI
+  menu 2, "Universe update"); prices are end-of-day, not live.
+- Data freshness: check the `as_of` field in every response.
+- Run at most ONE process against the local DuckDB at a time (single-writer
+  lock) — don't call tools while a backtest or universe update is running.
+- Backtests are intentionally NOT exposed as tools (minutes-long); run them
+  from the CLI (menu 6) or `fortress.actions.run_backtest` instead.
+- Educational/research use only — not financial advice. See DISCLAIMER.md.

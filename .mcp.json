@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "momentum-universe": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "fortress.mcp_server"]
+    }
+  }
+}

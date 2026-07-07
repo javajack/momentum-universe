@@ -230,6 +230,39 @@ so the switch signal must be rare; see
 > Educational/research figures only — survivorship-free backtests with modelled
 > costs, not live results. Past performance does not guarantee future results.
 
+## MCP server — query the system from Claude Code / Codex / any LLM
+
+The repo ships a read-only [MCP](https://modelcontextprotocol.io) server so
+LLM agents can pull the system's technical picks and layer their own
+diligence (fundamentals, shareholding, news — things this codebase
+deliberately does not model) on top:
+
+```bash
+.venv/bin/python -m fortress.mcp_server     # stdio transport
+```
+
+| Tool | What it returns |
+|---|---|
+| `swing_allocation_plan` | capital → 3+2 slot split: ticker, qty, ₹ allocation, stop, rotation days |
+| `momentum_scan` | top-N ranked stocks under the active strategy |
+| `momentum_allocation` | capital (+ holdings) → target weights, quantities, orders |
+| `market_state` | current regime, VIX, stress, equity/gold/cash split |
+| `universe_lookup` | PIT turnover rank + scan-band check for a symbol |
+| `stock_snapshot` | per-ticker technical context (returns, 200SMA, 52w-high, ATR, turnover) |
+
+**Claude Code**: the committed `.mcp.json` registers the server
+automatically when you open Claude Code inside the repo (approve when
+prompted). **Codex**: add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.momentum_universe]
+command = "/ABS/PATH/TO/momentum-universe/.venv/bin/python"
+args = ["-m", "fortress.mcp_server"]
+```
+
+Full setup for a fresh machine, the per-tool reference, and a suggested
+diligence workflow for agents live in [`llms.txt`](llms.txt).
+
 ## Data provenance
 
 The universe data is a mirror of the public
