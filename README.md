@@ -31,7 +31,7 @@ one-time). Then you get an interactive menu:
 8   Market / trigger check         current regime from latest data
 9   Momentum scan                    top-N momentum-ranked stocks + per-stock metrics
 10  Momentum allocation / rebalance  capital + N stocks -> momentum picks + orders
-11  Swing stock suggestions          runs ryner / high_base scanners, shows stocks
+11  Swing allocation plan            capital -> 3+2 slot split, qty + rotation days
 0   Exit
 ```
 

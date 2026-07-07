@@ -16,8 +16,10 @@ from .market_state import current_market_state
 from .rebalance import plan_rebalance
 from .credentials import save_credentials
 from .universe_update import update_universe
+from .swing_allocation import swing_allocation_plan
 
 __all__ = [
+    "swing_allocation_plan",
     "universe_query",
     "swing",
     "apply_selection",

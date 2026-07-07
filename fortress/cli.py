@@ -31,7 +31,7 @@ MENU = [
     ("8", "Market / trigger check", "current regime from latest data"),
     ("9", "Momentum scan", "top-N momentum-ranked stocks + metrics"),
     ("10", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
-    ("11", "Swing stock suggestions", "run ryner / high_base scanners, show stocks"),
+    ("11", "Swing allocation plan", "capital -> 3+2 slot split, qty + rotation days"),
     ("0", "Exit", ""),
 ]
 
@@ -203,15 +203,48 @@ class App:
             console.print(ot)
 
     def swing(self) -> None:
-        kind = Prompt.ask("Swing scanner", choices=["high_base", "ryner"], default="high_base")
-        top = int(Prompt.ask("Show top N", default="15"))
+        capital = float(Prompt.ask("Overall swing allocation (₹)", default="500000"))
+        hb_slots = int(Prompt.ask("high_base_52w slots", default="3"))
+        rsi_slots = int(Prompt.ask("rsi2_pullback (ryner) slots", default="2"))
         d = _ask_date("As-of date", date.today())
-        # The scanners print their own candidate table (symbols + stops + returns)
-        # and return the list; run them live on the vendored data.
-        if kind == "ryner":
-            A.swing.run_ryner_scan(as_of=d, top=top)
-        else:
-            A.swing.run_high_base_scan(as_of=d, top=top)
+        with console.status("[green]running both swing scanners..."):
+            plan = A.swing_allocation_plan(
+                capital, hb_slots=hb_slots, rsi_slots=rsi_slots, as_of=d)
+        console.print(Panel(
+            f"capital [bold]₹{plan.capital:,.0f}[/bold]   "
+            f"partition [bold]high_base×{plan.hb_slots} + rsi2×{plan.rsi_slots}[/bold]   "
+            f"per-slot [bold]₹{plan.per_trade:,.0f}[/bold]   as of [bold]{plan.as_of}[/bold]\n"
+            f"[dim]fixed partition beats shared pool & both solos on the same capital "
+            f"(nightlog Part 13: PF 1.50, MaxDD −9.4% @ 35bp, 2021→2026)[/dim]",
+            title="Swing allocation plan", style="cyan",
+        ))
+        t = Table("Strategy", "Slot", "Ticker", "Close ₹", "Qty", "Alloc ₹",
+                  "Stop ₹", "Stop%", "Rotate ≤", box=None)
+        for s in plan.slots:
+            if s.ticker:
+                t.add_row(
+                    s.strategy, str(s.slot), s.ticker, f"{s.close:,.1f}",
+                    str(s.quantity), f"{s.allocation:,.0f}",
+                    f"{s.suggested_stop:,.1f}", f"-{s.stop_pct:.1f}%",
+                    f"{s.time_stop_days}d",
+                )
+            else:
+                t.add_row(s.strategy, str(s.slot), "[dim]— hold cash —[/dim]",
+                          "", "0", "0", "", "", f"{s.time_stop_days}d")
+        console.print(t)
+        console.print(
+            f"[bold]Allocated ₹{plan.total_allocated:,.0f}[/bold]   "
+            f"cash reserve ₹{plan.cash_reserve:,.0f}")
+        console.print(Panel(
+            "Rotation guidance — check exits on every close (EOD):\n"
+            "• [bold]high_base_52w[/bold]: exit close < 21-EMA, hard stop entry−3×ATR, "
+            "forced rotation at 30 trading days. Typical hold ~10d (~1 rotation/month/slot).\n"
+            "• [bold]rsi2_pullback[/bold]: exit close > 5-SMA or RSI(2) ≥ 70, stop 1.5×ATR, "
+            "forced rotation at 20 trading days. Typical hold ~2-3d (~5+ rotations/month/slot).\n"
+            "• A freed slot is refilled from that scanner's next-ranked candidate — "
+            "re-run this menu after any exit.",
+            title="Suggested rotation days", style="yellow",
+        ))
 
     # ---- loop --------------------------------------------------------------
     def run(self) -> None:
