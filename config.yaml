@@ -280,10 +280,12 @@ adaptive_lookback:
   volatile_multiplier: 1.5 # Lookback multiplier in volatile (50% longer)
 
 # Strategy selection (canonical name OR short alias both work):
-# - "dual_momentum"     (alias: keystone) — proven baseline, adaptive dual momentum
-# - "emerging_momentum" (alias: vanguard) — velocity + breakout + volume; catches
-#                                            stocks transitioning into momentum (default)
-active_strategy: "emerging_momentum"
+# - "dual_momentum"             (alias: keystone) — proven baseline, adaptive dual momentum
+# - "emerging_momentum"         (alias: vanguard) — velocity + breakout + volume; catches
+#                                                    stocks transitioning into momentum
+# - "regime_switched_momentum"  (alias: switcher) — emerging scoring in risk-on regimes
+#                                                    (NORMAL/BULLISH), dual in stress (default)
+active_strategy: "regime_switched_momentum"
 
 # Emerging Momentum strategy: catches "about to gain" momentum via:
 #   - velocity-weighted NMS (1m+3m+6m+12m), more recent emphasis

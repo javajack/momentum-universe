@@ -18,6 +18,7 @@ from .base import (
 from .registry import StrategyRegistry
 from .adaptive_dual_momentum import AdaptiveDualMomentumStrategy
 from .emerging_momentum import EmergingMomentumStrategy
+from .regime_switched_momentum import RegimeSwitchedMomentumStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -27,4 +28,5 @@ __all__ = [
     "StrategyRegistry",
     "AdaptiveDualMomentumStrategy",
     "EmergingMomentumStrategy",
+    "RegimeSwitchedMomentumStrategy",
 ]

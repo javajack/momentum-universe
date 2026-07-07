@@ -24,7 +24,7 @@ one-time). Then you get an interactive menu:
 1   Configure Zerodha credentials  optional — only for live features
 2   Universe update                rebuild / fetch latest NSE data
 3   Universe query                 PIT members / rank / snapshot / coverage
-4   Select strategy                dual_momentum / emerging_momentum
+4   Select strategy                regime_switched / dual / emerging momentum
 5   Select universe + rank range   v1/v2, e.g. ranks 201-600
 6   Backtest                       historical simulation
 7   Market phases                  per-phase returns vs NIFTY, 2013 -> date
@@ -157,7 +157,11 @@ index-style liquidity ranking.
 
 ## Strategies
 
-- **`dual_momentum`** (default) — adaptive dual momentum: 12-1 NMS ranking with
+- **`regime_switched_momentum`** (default) — best-of-both switcher: runs
+  emerging_momentum scoring while the regime machine reads risk-on
+  (NORMAL/BULLISH) and dual_momentum's steadier 12-1 scoring in stress
+  (CAUTION/DEFENSIVE). Same exits/stops/overlay as its parents.
+- **`dual_momentum`** — adaptive dual momentum: 12-1 NMS ranking with
   regime-aware allocation, recovery/crash-avoidance state machines, tiered
   stops.
 - **`emerging_momentum`** — velocity-weighted (1m/3m/6m/12m) scoring with
@@ -207,9 +211,21 @@ timeline), higher Sharpe (0.92 vs 0.82) and shallower drawdown (−25.0% vs
 −28.4%). `emerging_momentum` is the more aggressive, higher-beta choice — it
 shone in the recent 2026 stabilization (+9.6% vs +8.1% alpha).
 
-**`emerging_momentum` is the shipped default** (early-stage momentum is the
-project's headline idea); switch to `dual_momentum` from menu option 3 for the
-steadier, higher-Sharpe profile.
+That regime split is exactly what the shipped default exploits.
+**`regime_switched_momentum` is the shipped default** — it delegates scoring
+to `emerging_momentum` while the regime machine reads risk-on
+(NORMAL/BULLISH) and to `dual_momentum` in stress (CAUTION/DEFENSIVE),
+keeping every other subsystem identical. On the full 13-year timeline it
+outscores both parents: **22.3% CAGR, 0.99 Sharpe, −27.3% max drawdown**
+(vs 20.9% / 0.92 / −25.0% for `dual_momentum`), with bull-phase alpha of
++13.7% vs dual's +10.2% while retaining crash defense (+26.2% alpha in the
+COVID crash). Its known trade-off: in 2023-25 the NIFTY-based regime signal
+stayed risk-on through the mid/smallcap topping, so it trailed
+`dual_momentum` over those years — pick `dual_momentum` from menu option 4
+if you want the steadiest recent-period profile. (Gating the scorer switch
+on universe breadth was tested and rejected — scorer switches cost turnover,
+so the switch signal must be rare; see
+`docs/superpowers/specs/2026-07-06-regime-switched-momentum-design.md`.)
 
 > Educational/research figures only — survivorship-free backtests with modelled
 > costs, not live results. Past performance does not guarantee future results.

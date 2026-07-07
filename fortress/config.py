@@ -1388,7 +1388,8 @@ class Config(BaseModel):
 
     # Strategy selection
     active_strategy: str = Field(
-        default="dual_momentum", description="Active strategy: 'dual_momentum'"
+        default="regime_switched_momentum",
+        description="Active strategy (see StrategyRegistry for available names)",
     )
 
     # Strategy-specific configs

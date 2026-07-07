@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 from fortress.config import Config
 from fortress.strategy.registry import StrategyRegistry
 
-VALID_STRATEGIES = ("dual_momentum", "emerging_momentum")
+VALID_STRATEGIES = ("dual_momentum", "emerging_momentum", "regime_switched_momentum")
 VALID_VERSIONS = ("v1", "v2")
 
 

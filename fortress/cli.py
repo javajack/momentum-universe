@@ -24,7 +24,7 @@ MENU = [
     ("1", "Configure Zerodha credentials", "optional — only for live features"),
     ("2", "Universe update", "rebuild / fetch latest NSE data"),
     ("3", "Universe query", "PIT members / rank / snapshot / coverage"),
-    ("4", "Select strategy", "dual_momentum / emerging_momentum"),
+    ("4", "Select strategy", "regime_switched / dual / emerging momentum"),
     ("5", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
     ("6", "Backtest", "historical simulation"),
     ("7", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
