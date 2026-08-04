@@ -11,20 +11,6 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 
-class ZerodhaConfig(BaseModel):
-    """Zerodha API credentials."""
-
-    api_key: str = Field(default="", description="Kite Connect API key")
-    api_secret: str = Field(default="", description="Kite Connect API secret")
-
-    @field_validator("api_key", "api_secret")
-    @classmethod
-    def check_not_placeholder(cls, v: str) -> str:
-        if v in ("your_api_key_here", "your_api_secret_here"):
-            raise ValueError("Please set actual API credentials in config.yaml")
-        return v
-
-
 class PortfolioConfig(BaseModel):
     """Portfolio settings."""
 
@@ -1371,7 +1357,6 @@ class EmergingMomentumConfig(BaseModel):
 class Config(BaseModel):
     """Main configuration model for FORTRESS MOMENTUM."""
 
-    zerodha: ZerodhaConfig = Field(default_factory=ZerodhaConfig)
     portfolio: PortfolioConfig = Field(default_factory=PortfolioConfig)
     pure_momentum: PureMomentumConfig = Field(default_factory=PureMomentumConfig)
     position_sizing: PositionSizingConfig = Field(default_factory=PositionSizingConfig)
@@ -1419,30 +1404,13 @@ class Config(BaseModel):
 
 
 def load_config(config_path: str = "config.yaml") -> Config:
-    """Load configuration from YAML file with environment variable override support.
-
-    Environment variables take precedence over config file values:
-    - ZERODHA_API_KEY: Override zerodha.api_key
-    - ZERODHA_API_SECRET: Override zerodha.api_secret
-    """
-    import os
-
+    """Load configuration from a YAML file. Credential-free — no broker keys."""
     path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
     with open(path) as f:
         data = yaml.safe_load(f)
-
-    # Override with environment variables if present
-    if "ZERODHA_API_KEY" in os.environ:
-        if "zerodha" not in data:
-            data["zerodha"] = {}
-        data["zerodha"]["api_key"] = os.environ["ZERODHA_API_KEY"]
-    if "ZERODHA_API_SECRET" in os.environ:
-        if "zerodha" not in data:
-            data["zerodha"] = {}
-        data["zerodha"]["api_secret"] = os.environ["ZERODHA_API_SECRET"]
 
     # Strip out any profiles section from YAML (no longer used)
     data.pop("profiles", None)

@@ -15,7 +15,6 @@ from .backtest import run_backtest
 from .phases import run_market_phases, MARKET_PHASES
 from .market_state import current_market_state
 from .rebalance import plan_rebalance
-from .credentials import save_credentials
 from .universe_update import update_universe
 from .swing_allocation import swing_allocation_plan
 from .fresh_allocation import fresh_allocation
@@ -33,6 +32,5 @@ __all__ = [
     "MARKET_PHASES",
     "current_market_state",
     "plan_rebalance",
-    "save_credentials",
     "update_universe",
 ]

@@ -21,33 +21,28 @@ First launch builds a local DuckDB from the committed parquet (a few seconds,
 one-time). Then you get an interactive menu:
 
 ```
-1   Configure Zerodha credentials  optional — only for live features
-2   Universe update                rebuild / fetch latest NSE data
-3   Universe query                 PIT members / rank / snapshot / coverage
-4   Select strategy                regime_switched / dual / emerging momentum
-5   Select universe + rank range   v1/v2, e.g. ranks 201-600
-6   Backtest                       historical simulation
-7   Market phases                  per-phase returns vs NIFTY, 2013 -> date
-8   Market / trigger check         current regime from latest data
-9   Momentum scan                    top-N momentum-ranked stocks + per-stock metrics
-10  Momentum allocation / rebalance  capital + N stocks -> momentum picks + orders
-11  Swing allocation plan            capital -> 3+2 slot split, qty + rotation days
-12  Emerging momentum scan           rank-climbing + early momentum (pre-run names)
-13  Fresh allocation plan            enter ₹ -> combined momentum+swing breakup, no holdings
+1   Universe update                rebuild / fetch latest NSE data
+2   Universe query                 PIT members / rank / snapshot / coverage
+3   Select strategy                dual / emerging / regime_switched momentum
+4   Select universe + rank range   v1/v2, e.g. ranks 201-600
+5   Backtest                       historical simulation
+6   Market phases                  per-phase returns vs NIFTY, 2013 -> date
+7   Market / trigger check         current regime from latest data
+8   Momentum scan                    top-N momentum-ranked stocks + per-stock metrics
+9   Momentum allocation / rebalance  capital + N stocks -> momentum picks + orders
+10  Swing allocation plan            capital -> 3+2 slot split, qty + rotation days
+11  Emerging momentum scan           rank-climbing + early momentum (pre-run names)
+12  Fresh allocation plan            enter ₹ -> combined momentum+swing breakup, no holdings
 0   Exit
 ```
 
-## Credentials & safety
+## Credential-free by design
 
-The repo ships **credential-free**. Everything under "analysis" — universe
-update, backtest, market/trigger check, rebalance-from-inputs, swing research —
-needs **no credentials at all**; it runs entirely on the vendored data.
-
-The optional **live** features (live cache update, live-holdings rebalance) use
-the [Zerodha Kite Connect](https://kite.trade) API with **your own** keys.
-Configure them from menu option **1** (or copy `.env.example` → `.env`) — your
-keys are written to a gitignored `.env` and the access token to a gitignored
-cache, so nothing sensitive is ever committed.
+The repo ships **fully credential-free** — every feature (universe update,
+backtest, market/trigger check, allocation planning, swing and emerging scans)
+runs entirely on the vendored data with **no broker, no login, no API keys**.
+"Universe update" (menu 1) fetches fresh daily bars from NSE's *public* bhavcopy
+archive — no account required. There is no live-broker/order-placement path.
 
 ## What's inside
 
@@ -55,7 +50,7 @@ cache, so nothing sensitive is ever committed.
   regime detection with graduated equity/gold allocation, tiered stops,
   recovery modes, a point-in-time backtester, and a rebalance planner.
   - `fortress/actions/` — a small **pure-function layer** (selection, backtest,
-    market phases, market state, rebalance, credentials, universe update) that
+    market phases, market state, rebalance, allocation, universe update) that
     the CLI is a thin shell over. Import and reuse it from scripts or notebooks.
     The 2013→date market-phase timeline (incl. a data-driven re-segmentation of
     the 2024-09 → 2026-04 tail) lives in `fortress/actions/phases.py`.
@@ -123,7 +118,7 @@ Two runnable examples:
 .venv/bin/python examples/custom_strategy.py
 ```
 
-For quick interactive exploration, use **CLI menu option 3 ("Universe query")**
+For quick interactive exploration, use **CLI menu option 2 ("Universe query")**
 (members / rank / snapshot / coverage as of any date), run
 `examples/explore_universe.py`, or import `Universe` in a REPL / notebook.
 
@@ -167,7 +162,7 @@ index-style liquidity ranking.
   breakout + volume-confirmed boosts; catches earlier-stage momentum. Higher
   median return but high-beta (wins bull windows, loses stress windows hardest).
 - **`regime_switched_momentum`** — best-of-both switcher (emerging scoring in
-  risk-on regimes, dual in stress). Available via menu 4 but **not the default**:
+  risk-on regimes, dual in stress). Available via menu 3 but **not the default**:
   walk-forward validation showed it overfits — it wins in-sample but mis-times
   the parent handoff out-of-sample. Kept for research; see the 2026-08-05 spec.
 
@@ -228,7 +223,7 @@ wins in-sample but out-of-sample tracks whichever parent is doing *worse*
 (mis-timed handoff), landing last by window win-rate. A cautionary example of
 why in-sample CAGR is not a tuning target. `emerging_momentum` has the best
 *median* out-of-sample metrics but is high-beta. Both remain selectable from
-menu 4. Full analysis:
+menu 3. Full analysis:
 `docs/superpowers/specs/2026-08-05-fresh-allocation-completeness-validation.md`
 and `docs/superpowers/specs/2026-07-06-regime-switched-momentum-design.md`.
 
@@ -275,7 +270,7 @@ diligence workflow for agents live in [`llms.txt`](llms.txt).
 The universe data is a mirror of the public
 [custom-nse-500-historical-data](https://github.com/javajack/custom-nse-500-historical-data)
 project (NSE public bhavcopy + yfinance corporate actions). "Universe update"
-(menu 2) refreshes it from NSE's public endpoints — no broker or login.
+(menu 1) refreshes it from NSE's public endpoints — no broker or login.
 
 ## Requirements
 

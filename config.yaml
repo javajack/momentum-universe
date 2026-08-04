@@ -1,11 +1,6 @@
 # FORTRESS MOMENTUM Configuration
 # Pure momentum strategy targeting 3% monthly returns
-
-# Zerodha API credentials
-# Set via environment variables: ZERODHA_API_KEY, ZERODHA_API_SECRET
-zerodha:
-  api_key: ""
-  api_secret: ""
+# Credential-free — runs entirely on the vendored data (no broker keys).
 
 # Portfolio settings
 portfolio:

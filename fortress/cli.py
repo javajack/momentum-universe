@@ -2,8 +2,7 @@
 
 This menu only gathers inputs, calls one function from `fortress.actions`, and
 renders the result. All logic lives in the actions layer (pure, testable).
-Analysis features need no credentials; the live features prompt to configure
-Zerodha keys first.
+Credential-free — every feature runs on the vendored data, no broker.
 """
 from __future__ import annotations
 
@@ -21,19 +20,18 @@ from fortress import actions as A
 console = Console()
 
 MENU = [
-    ("1", "Configure Zerodha credentials", "optional — only for live features"),
-    ("2", "Universe update", "rebuild / fetch latest NSE data"),
-    ("3", "Universe query", "PIT members / rank / snapshot / coverage"),
-    ("4", "Select strategy", "regime_switched / dual / emerging momentum"),
-    ("5", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
-    ("6", "Backtest", "historical simulation"),
-    ("7", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
-    ("8", "Market / trigger check", "current regime from latest data"),
-    ("9", "Momentum scan", "top-N momentum-ranked stocks + metrics"),
-    ("10", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
-    ("11", "Swing allocation plan", "capital -> 3+2 slot split, qty + rotation days"),
-    ("12", "Emerging momentum scan", "rank-climbing + early momentum (pre-run names)"),
-    ("13", "Fresh allocation plan", "enter ₹ -> combined momentum+swing breakup, no holdings"),
+    ("1", "Universe update", "rebuild / fetch latest NSE data"),
+    ("2", "Universe query", "PIT members / rank / snapshot / coverage"),
+    ("3", "Select strategy", "dual / emerging / regime_switched momentum"),
+    ("4", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
+    ("5", "Backtest", "historical simulation"),
+    ("6", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
+    ("7", "Market / trigger check", "current regime from latest data"),
+    ("8", "Momentum scan", "top-N momentum-ranked stocks + metrics"),
+    ("9", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
+    ("10", "Swing allocation plan", "capital -> 3+2 slot split, qty + rotation days"),
+    ("11", "Emerging momentum scan", "rank-climbing + early momentum (pre-run names)"),
+    ("12", "Fresh allocation plan", "enter ₹ -> combined momentum+swing breakup, no holdings"),
     ("0", "Exit", ""),
 ]
 
@@ -61,16 +59,6 @@ class App:
         console.print(t)
 
     # ---- handlers (thin: gather input -> action -> render) -----------------
-    def configure_credentials(self) -> None:
-        console.print("[dim]Keys are written to a gitignored .env and never committed.[/dim]")
-        key = Prompt.ask("ZERODHA_API_KEY").strip()
-        secret = Prompt.ask("ZERODHA_API_SECRET", password=True).strip()
-        try:
-            path = A.save_credentials(key, secret)
-            console.print(f"[green]Saved to {path} (chmod 600).[/green]")
-        except ValueError as e:
-            console.print(f"[red]{e}[/red]")
-
     def universe_update(self) -> None:
         fetch = Prompt.ask("Fetch latest from NSE? (needs network) [y/N]", default="n").lower() == "y"
         with console.status("[green]updating universe..."):
@@ -257,7 +245,7 @@ class App:
             f"as of [bold]{res.as_of}[/bold]   [dim]{res.candidates_scanned} rank-climbers scanned, "
             f"{res.total_passing} passed early-momentum filters[/dim]\n"
             f"[dim]stocks EARLY in a move (liquidity rank climbing + breaking toward highs, "
-            f"12m return capped) — the pre-run complement to menu 9. Diligence each pick before acting.[/dim]",
+            f"12m return capped) — the pre-run complement to menu 8. Diligence each pick before acting.[/dim]",
             title="Emerging momentum scan", style="cyan",
         ))
         t = Table("#", "Ticker", "Sector", "Rank 2y→now", "3M", "6M", "12M",
@@ -325,13 +313,12 @@ class App:
             self._menu()
             choice = Prompt.ask("\nSelect option", default="0")
             handlers = {
-                "1": self.configure_credentials, "2": self.universe_update,
-                "3": self.universe_query,
-                "4": self.select_strategy, "5": self.select_universe,
-                "6": self.backtest, "7": self.market_phases,
-                "8": self.market_check, "9": self.momentum_scan,
-                "10": self.rebalance, "11": self.swing,
-                "12": self.emerging_scan, "13": self.fresh_allocation,
+                "1": self.universe_update, "2": self.universe_query,
+                "3": self.select_strategy, "4": self.select_universe,
+                "5": self.backtest, "6": self.market_phases,
+                "7": self.market_check, "8": self.momentum_scan,
+                "9": self.rebalance, "10": self.swing,
+                "11": self.emerging_scan, "12": self.fresh_allocation,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")
