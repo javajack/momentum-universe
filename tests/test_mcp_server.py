@@ -82,5 +82,6 @@ def test_server_exposes_expected_tools():
     tools = {t.name for t in asyncio.run(server.list_tools())}
     assert tools == {
         "swing_allocation_plan", "momentum_scan", "emerging_scan",
-        "momentum_allocation", "market_state", "universe_lookup", "stock_snapshot",
+        "fresh_allocation", "momentum_allocation", "market_state",
+        "universe_lookup", "stock_snapshot",
     }

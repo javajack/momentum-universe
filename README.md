@@ -33,6 +33,7 @@ one-time). Then you get an interactive menu:
 10  Momentum allocation / rebalance  capital + N stocks -> momentum picks + orders
 11  Swing allocation plan            capital -> 3+2 slot split, qty + rotation days
 12  Emerging momentum scan           rank-climbing + early momentum (pre-run names)
+13  Fresh allocation plan            enter ₹ -> combined momentum+swing breakup, no holdings
 0   Exit
 ```
 
@@ -247,6 +248,7 @@ deliberately does not model) on top:
 | `swing_allocation_plan` | capital → 3+2 slot split: ticker, qty, ₹ allocation, stop, rotation days |
 | `momentum_scan` | top-N ranked stocks under the active strategy |
 | `emerging_scan` | stocks EARLY in a move (rank climbing + early momentum) — the pre-run complement |
+| `fresh_allocation` | enter ₹ (momentum + swing) → combined breakup with qty, overlap + ADV flags, no holdings |
 | `momentum_allocation` | capital (+ holdings) → target weights, quantities, orders |
 | `market_state` | current regime, VIX, stress, equity/gold/cash split |
 | `universe_lookup` | PIT turnover rank + scan-band check for a symbol |

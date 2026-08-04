@@ -33,6 +33,7 @@ MENU = [
     ("10", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
     ("11", "Swing allocation plan", "capital -> 3+2 slot split, qty + rotation days"),
     ("12", "Emerging momentum scan", "rank-climbing + early momentum (pre-run names)"),
+    ("13", "Fresh allocation plan", "enter ₹ -> combined momentum+swing breakup, no holdings"),
     ("0", "Exit", ""),
 ]
 
@@ -271,6 +272,52 @@ class App:
             )
         console.print(t)
 
+    def fresh_allocation(self) -> None:
+        console.print("[dim]Stateless allocation — enter fresh amounts, no holdings. "
+                      "0 skips a sleeve.[/dim]")
+        mom = float(Prompt.ask("Momentum ₹ to deploy", default="1000000"))
+        sw = float(Prompt.ask("Swing ₹ to deploy", default="500000"))
+        with console.status("[green]building fresh allocation (both sleeves)..."):
+            plan = A.fresh_allocation(self.config, momentum_capital=mom, swing_capital=sw)
+        style = {"defensive": "red", "caution": "yellow"}.get(plan.regime, "green")
+        console.print(Panel(
+            f"as of [bold]{plan.as_of}[/bold]   regime [bold]{plan.regime.upper()}[/bold]\n"
+            f"[dim]{plan.regime_hint}[/dim]",
+            title="Fresh allocation plan", style=style,
+        ))
+        if plan.momentum_rows:
+            t = Table("Sym", "Wt", "Qty", "Value ₹", "ADV%", "⚠", box=None,
+                      title=f"Momentum sleeve (₹{plan.momentum_capital:,.0f})")
+            for r in plan.momentum_rows:
+                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "-"
+                flags = ("↔" if r.overlap else "") + ("!" if r.adv_warn else "")
+                t.add_row(r.symbol, r.detail, str(r.quantity), f"{r.value:,.0f}", advp, flags)
+            console.print(t)
+            if plan.defensive_rows:
+                buf = "   ".join(f"{r.symbol} {r.detail} (₹{r.value:,.0f})"
+                                 for r in plan.defensive_rows)
+                console.print(f"[dim]defensive buffer (regime overlay): {buf} — buy these ETFs "
+                              f"separately for the gold/cash cushion[/dim]")
+            console.print(f"[dim]momentum cash residue ₹{plan.momentum_cash:,.0f}[/dim]")
+        if plan.swing_rows:
+            t = Table("Strategy", "Sym", "Qty", "Value ₹", "Stop ₹", "Rotate", "ADV%", "⚠",
+                      box=None, title=f"Swing sleeve (₹{plan.swing_capital:,.0f})")
+            for r in plan.swing_rows:
+                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "-"
+                flags = ("↔" if r.overlap else "") + ("!" if r.adv_warn else "")
+                t.add_row(r.detail, r.symbol, str(r.quantity), f"{r.value:,.0f}",
+                          f"{r.stop:,.1f}" if r.stop else "-",
+                          f"{r.rotation_days}d" if r.rotation_days else "-", advp, flags)
+            console.print(t)
+            console.print(f"[dim]swing cash residue ₹{plan.swing_cash:,.0f}[/dim]")
+        if plan.overlaps:
+            console.print(Panel(
+                f"[bold]↔ Overlap — appears in BOTH sleeves:[/bold] {', '.join(plan.overlaps)}\n"
+                "[dim]You'd be buying the same name twice — consider netting to one sleeve.[/dim]",
+                style="yellow"))
+        console.print("[dim]↔ = cross-sleeve overlap   ! = slot is a large % of the stock's "
+                      "daily volume (fill-risk). Approx quantities — verify before ordering.[/dim]")
+
     # ---- loop --------------------------------------------------------------
     def run(self) -> None:
         while True:
@@ -284,7 +331,7 @@ class App:
                 "6": self.backtest, "7": self.market_phases,
                 "8": self.market_check, "9": self.momentum_scan,
                 "10": self.rebalance, "11": self.swing,
-                "12": self.emerging_scan,
+                "12": self.emerging_scan, "13": self.fresh_allocation,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")

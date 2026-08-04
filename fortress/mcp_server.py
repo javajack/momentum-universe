@@ -230,6 +230,50 @@ def build_server():
         }
 
     @mcp.tool()
+    def fresh_allocation(
+        momentum_capital: float = 0,
+        swing_capital: float = 0,
+        momentum_top_n: Optional[int] = None,
+        hb_slots: int = 3,
+        rsi_slots: int = 2,
+    ) -> dict:
+        """Stateless "here is Rs X, what do I buy?" — a fresh combined
+        allocation for the entered amounts, with NO existing holdings. Deploys
+        `momentum_capital` via the active momentum strategy and `swing_capital`
+        via the 3+2 swing partition (either may be 0 to skip). Returns one
+        breakup with per-stock approx quantity, rupee value, stop and (swing)
+        rotation days, PLUS: overlap flags for any ticker in both sleeves
+        (avoid double-buying), an ADV fill-risk flag per slot (rupee size vs
+        the stock's 20-day traded value), and a one-line regime hint to inform
+        the split. Separate from momentum_allocation, which diffs against
+        supplied holdings."""
+        from fortress import actions as A
+        with _quiet_stdout():
+            p = A.fresh_allocation(
+                _load_config(), momentum_capital=momentum_capital,
+                swing_capital=swing_capital, momentum_top_n=momentum_top_n,
+                hb_slots=hb_slots, rsi_slots=rsi_slots, config_path=CONFIG_PATH)
+
+        def _row(r):
+            return {"sleeve": r.sleeve, "symbol": r.symbol, "detail": r.detail,
+                    "quantity": r.quantity, "value": r.value, "stop": r.stop,
+                    "rotation_days": r.rotation_days, "adv_pct": r.adv_pct,
+                    "adv_warn": r.adv_warn, "overlap": r.overlap}
+        return {
+            "as_of": _to_jsonable(p.as_of),
+            "regime": p.regime,
+            "regime_hint": p.regime_hint,
+            "momentum_capital": p.momentum_capital,
+            "swing_capital": p.swing_capital,
+            "momentum_cash": p.momentum_cash,
+            "swing_cash": p.swing_cash,
+            "overlaps": p.overlaps,
+            "momentum": [_row(r) for r in p.momentum_rows],
+            "swing": [_row(r) for r in p.swing_rows],
+            "defensive_buffer": [_row(r) for r in p.defensive_rows],
+        }
+
+    @mcp.tool()
     def momentum_allocation(
         capital: float,
         top_n: Optional[int] = None,

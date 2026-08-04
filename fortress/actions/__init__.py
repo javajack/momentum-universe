@@ -18,9 +18,11 @@ from .rebalance import plan_rebalance
 from .credentials import save_credentials
 from .universe_update import update_universe
 from .swing_allocation import swing_allocation_plan
+from .fresh_allocation import fresh_allocation
 
 __all__ = [
     "swing_allocation_plan",
+    "fresh_allocation",
     "universe_query",
     "swing",
     "apply_selection",
