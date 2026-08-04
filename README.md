@@ -159,15 +159,17 @@ index-style liquidity ranking.
 
 ## Strategies
 
-- **`regime_switched_momentum`** (default) — best-of-both switcher: runs
-  emerging_momentum scoring while the regime machine reads risk-on
-  (NORMAL/BULLISH) and dual_momentum's steadier 12-1 scoring in stress
-  (CAUTION/DEFENSIVE). Same exits/stops/overlay as its parents.
-- **`dual_momentum`** — adaptive dual momentum: 12-1 NMS ranking with
+- **`dual_momentum`** (default) — adaptive dual momentum: 12-1 NMS ranking with
   regime-aware allocation, recovery/crash-avoidance state machines, tiered
-  stops.
+  stops. The most **out-of-sample-robust** choice (see walk-forward below) and
+  the best all-weather / drawdown profile.
 - **`emerging_momentum`** — velocity-weighted (1m/3m/6m/12m) scoring with
-  breakout + volume-confirmed boosts; catches earlier-stage momentum.
+  breakout + volume-confirmed boosts; catches earlier-stage momentum. Higher
+  median return but high-beta (wins bull windows, loses stress windows hardest).
+- **`regime_switched_momentum`** — best-of-both switcher (emerging scoring in
+  risk-on regimes, dual in stress). Available via menu 4 but **not the default**:
+  walk-forward validation showed it overfits — it wins in-sample but mis-times
+  the parent handoff out-of-sample. Kept for research; see the 2026-08-05 spec.
 
 ## Strategy comparison (last 10 years)
 
@@ -213,21 +215,22 @@ timeline), higher Sharpe (0.92 vs 0.82) and shallower drawdown (−25.0% vs
 −28.4%). `emerging_momentum` is the more aggressive, higher-beta choice — it
 shone in the recent 2026 stabilization (+9.6% vs +8.1% alpha).
 
-That regime split is exactly what the shipped default exploits.
-**`regime_switched_momentum` is the shipped default** — it delegates scoring
-to `emerging_momentum` while the regime machine reads risk-on
-(NORMAL/BULLISH) and to `dual_momentum` in stress (CAUTION/DEFENSIVE),
-keeping every other subsystem identical. On the full 13-year timeline it
-outscores both parents: **22.3% CAGR, 0.99 Sharpe, −27.3% max drawdown**
-(vs 20.9% / 0.92 / −25.0% for `dual_momentum`), with bull-phase alpha of
-+13.7% vs dual's +10.2% while retaining crash defense (+26.2% alpha in the
-COVID crash). Its known trade-off: in 2023-25 the NIFTY-based regime signal
-stayed risk-on through the mid/smallcap topping, so it trailed
-`dual_momentum` over those years — pick `dual_momentum` from menu option 4
-if you want the steadiest recent-period profile. (Gating the scorer switch
-on universe breadth was tested and rejected — scorer switches cost turnover,
-so the switch signal must be rare; see
-`docs/superpowers/specs/2026-07-06-regime-switched-momentum-design.md`.)
+**`dual_momentum` is the default** — chosen on **walk-forward validation**, not
+a single backtest. Across five non-overlapping 2-year out-of-sample windows
+(2016→2026, each a different regime), `dual_momentum` won both stress windows
+(least-bad −3.7% in the 2020-22 drawdown; +24.3% CAGR / 3.26 Calmar in the
+2022-24 recovery) and generalized cleanly (train→test Calmar gap ≈ 0). It best
+matches the project's goal: all-weather behaviour with drawdown control.
+
+The **`regime_switched_momentum`** switcher — which *led the full-13-year
+backtest* (22.3% CAGR) — was tried as default and **failed walk-forward**: it
+wins in-sample but out-of-sample tracks whichever parent is doing *worse*
+(mis-timed handoff), landing last by window win-rate. A cautionary example of
+why in-sample CAGR is not a tuning target. `emerging_momentum` has the best
+*median* out-of-sample metrics but is high-beta. Both remain selectable from
+menu 4. Full analysis:
+`docs/superpowers/specs/2026-08-05-fresh-allocation-completeness-validation.md`
+and `docs/superpowers/specs/2026-07-06-regime-switched-momentum-design.md`.
 
 > Educational/research figures only — survivorship-free backtests with modelled
 > costs, not live results. Past performance does not guarantee future results.

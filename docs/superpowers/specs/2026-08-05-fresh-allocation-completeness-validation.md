@@ -87,6 +87,28 @@ state, holdings, and reconciliation from scope.
 | Systematic meta-allocator | Medium | Low | DROP |
 | Attribution | Medium | Low | DEFER |
 
+## First OOS sweep result (2026-08-05) — the default overfits
+
+Train 2013–2020 / Test 2021–2026, ranked by TEST Calmar:
+
+| Strategy | train CAGR/Calmar | test CAGR/Calmar/Sharpe | overfit gap |
+|---|--:|--:|--:|
+| dual_momentum | 20.8% / 0.64 | **13.1% / 0.66 / 0.52** | −0.02 (none) |
+| regime_switched (default) | 22.1% / 0.75 | 7.8% / 0.40 / 0.20 | **+0.35 (large)** |
+
+**The shipped default `regime_switched_momentum` does NOT hold out-of-sample** —
+it wins in-sample (which is why it won the full-13y backtest and got shipped)
+but loses decisively on unseen 2021–2026 data, while dual generalizes cleanly.
+Corroborated by the 10y window (dual led) and the front-loaded per-year edge.
+**Recommendation: treat dual_momentum as the robust default; confirm with a
+proper multi-window walk-forward before finalizing — one split is a strong
+signal, not proof.**
+
+Methodology note: `rebalance_days` (15/30/45) gave identical results because
+`dynamic_rebalance.enabled: true` overrides the fixed cadence. Tune
+`dynamic_rebalance.min/max_days_between` instead. The real tuning harness must
+(a) sweep the LIVE knobs, (b) use multiple rolling train/test windows.
+
 ## Bottom line
 
 Under the fresh-allocation-only model, **most of the "portfolio layer" work I
