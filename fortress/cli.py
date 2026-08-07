@@ -280,7 +280,10 @@ class App:
                 t.add_row(r.symbol, traj, delta, "IPO" if r.is_ipo else "", r6, r12, offhi, sma,
                           f"{r.turnover / 1e7:.1f}", r.tier, (r.sector or "")[:16])
             console.print(t)
-            console.print("[magenta]⚑ Research watchlist — NOT a buy list. EARLY sweet spot: rank "
+            tickers = " ".join(r.symbol for r in rows)
+            console.print(f"\n[dim]Paste-ready shortlist ({len(rows)}) — copy into a StockEdge-MCP "
+                          f"diligence prompt:[/dim]\n{tickers}")
+            console.print("\n[magenta]⚑ Research watchlist — NOT a buy list. EARLY sweet spot: rank "
                           "climbing + above 200SMA + price still BASING (low 6M) + near its high "
                           "(OffHi ~0). Confirm the catalyst via StockEdge / news.[/magenta]")
             console.print("[dim]Δclimb ≥ = new entrant · 6M/12M = price return · OffHi = % below "
