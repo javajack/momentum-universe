@@ -114,10 +114,10 @@ An LLM client (Claude Code / Codex) can chain this into a repeatable
 ## Caveats for agents
 
 - All tools are read-only and run on vendored data (refreshed via CLI
-  menu 2, "Universe update"); prices are end-of-day, not live.
+  menu 1, "Universe update"); prices are end-of-day, not live.
 - Data freshness: check the `as_of` field in every response.
 - Run at most ONE process against the local DuckDB at a time (single-writer
   lock) — don't call tools while a backtest or universe update is running.
 - Backtests are intentionally NOT exposed as tools (minutes-long); run them
-  from the CLI (menu 6) or `fortress.actions.run_backtest` instead.
+  from the CLI (menu 4) or `fortress.actions.run_backtest` instead.
 - Educational/research use only — not financial advice. See DISCLAIMER.md.

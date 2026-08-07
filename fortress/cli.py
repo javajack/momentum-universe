@@ -7,7 +7,6 @@ Credential-free — every feature runs on the vendored data, no broker.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -19,19 +18,23 @@ from fortress import actions as A
 
 console = Console()
 
+# Grouped into four jobs: manage data → research → discover names → size a plan.
+# A 2-tuple is a section header; a 3-tuple is a selectable option.
 MENU = [
-    ("1", "Universe update", "rebuild / fetch latest NSE data"),
-    ("2", "Universe query", "PIT members / rank / snapshot / coverage"),
-    ("3", "Select strategy", "dual / emerging / regime_switched momentum"),
-    ("4", "Select universe + rank range", "v1/v2, e.g. ranks 201-600"),
-    ("5", "Backtest", "historical simulation"),
-    ("6", "Market phases", "per-phase returns vs NIFTY, 2013→date"),
-    ("7", "Market / trigger check", "current regime from latest data"),
-    ("8", "Momentum scan", "top-N momentum-ranked stocks + metrics"),
-    ("9", "Momentum allocation / rebalance", "capital + N stocks -> picks + orders"),
-    ("10", "Swing allocation plan", "capital -> 3+2 slot split, qty + rotation days"),
-    ("11", "Emerging momentum scan", "rank-climbing + early momentum (pre-run names)"),
-    ("12", "Fresh allocation plan", "enter ₹ -> combined momentum+swing breakup, no holdings"),
+    ("§", "DATA"),
+    ("1", "Universe update", "fetch + full sync + integrity check"),
+    ("2", "Universe query", "PIT members / rank / coverage"),
+    ("3", "Settings", "strategy · universe · rank band"),
+    ("§", "RESEARCH"),
+    ("4", "Backtest", "historical sim, custom window"),
+    ("5", "Market phases", "per-phase returns vs NIFTY"),
+    ("6", "Market / regime check", "current regime, VIX, allocation"),
+    ("§", "DISCOVER"),
+    ("7", "Momentum scan", "momentum leaders + metrics"),
+    ("8", "Emerging momentum scan", "rank-climbing, pre-run names"),
+    ("§", "ALLOCATE"),
+    ("9", "Fresh allocation plan", "enter ₹ → momentum + swing buy plan"),
+    ("§", ""),
     ("0", "Exit", ""),
 ]
 
@@ -52,10 +55,15 @@ class App:
         ))
         t = Table(show_header=False, box=None, padding=(0, 2))
         t.add_column("Key", style="cyan bold", width=3)
-        t.add_column("Option", style="white", width=32)
+        t.add_column("Option", style="white", width=26)
         t.add_column("Description", style="dim")
-        for k, opt, desc in MENU:
-            t.add_row(k, opt, desc)
+        for row in MENU:
+            if len(row) == 2:                       # section header (or spacer)
+                _, name = row
+                t.add_row("", f"[bold dim]{name}[/bold dim]" if name else "", "")
+            else:
+                k, opt, desc = row
+                t.add_row(k, opt, desc)
         console.print(t)
 
     # ---- handlers (thin: gather input -> action -> render) -----------------
@@ -135,19 +143,25 @@ class App:
                 t.add_row(str(int(row["rank"])), row["symbol"], f"{row['metric_value']:,.0f}")
             console.print(t)
 
-    def select_strategy(self) -> None:
+    def settings(self) -> None:
+        """Session settings: strategy + universe version + rank band. These drive
+        backtest, scans and allocation. Enter through the defaults to keep the
+        validated setup (dual_momentum · v2 · ranks 201-600)."""
+        rr = self.config.universe.rank_range
+        console.print(f"[dim]Current: strategy [bold]{self.config.active_strategy}[/bold] · "
+                      f"universe [bold]v{self.config.universe.version[-1]}[/bold] · "
+                      f"ranks [bold]{rr[0]}-{rr[1]}[/bold]. Press Enter to keep each.[/dim]")
         s = Prompt.ask("Strategy", choices=list(A.selection.VALID_STRATEGIES),
                        default=self.config.active_strategy)
-        self.config = A.apply_selection(self.config, strategy=s)
-        console.print(f"[green]Active strategy: {self.config.active_strategy}[/green]")
-
-    def select_universe(self) -> None:
-        v = Prompt.ask("Universe version", choices=["v1", "v2"], default=self.config.universe.version)
-        lo = int(Prompt.ask("Rank low", default=str(self.config.universe.rank_range[0])))
-        hi = int(Prompt.ask("Rank high", default=str(self.config.universe.rank_range[1])))
+        v = Prompt.ask("Universe version  [dim](v2 = momentum-grade, recommended)[/dim]",
+                       choices=["v1", "v2"], default=self.config.universe.version)
+        lo = int(Prompt.ask("Rank band — low", default=str(rr[0])))
+        hi = int(Prompt.ask("Rank band — high", default=str(rr[1])))
         try:
-            self.config = A.apply_selection(self.config, version=v, rank_range=[lo, hi])
-            console.print(f"[green]Universe: v{v[-1]} ranks {self.config.universe.rank_range}[/green]")
+            self.config = A.apply_selection(self.config, strategy=s, version=v, rank_range=[lo, hi])
+            nr = self.config.universe.rank_range
+            console.print(f"[green]✓ {self.config.active_strategy} · "
+                          f"v{self.config.universe.version[-1]} · ranks {nr[0]}-{nr[1]}[/green]")
         except ValueError as e:
             console.print(f"[red]{e}[/red]")
 
@@ -162,6 +176,9 @@ class App:
             f"trades {len(r.trades)}",
             title=f"Backtest {start} → {end}", style="green",
         ))
+        console.print("[dim]CAGR = annualised return · MaxDD = worst peak-to-trough drop · "
+                      "Sharpe = return per unit of risk (higher is better). Survivorship-free, "
+                      "modelled costs — research only, not a live result.[/dim]")
 
     def market_phases(self) -> None:
         with console.status(f"[green]running {len(A.MARKET_PHASES)}-phase analysis ({self.config.active_strategy})... (~minutes)"):
@@ -212,68 +229,9 @@ class App:
                 f"{s.daily_turnover / 1e7:.1f}", "✓" if s.above_200sma else "·",
             )
         console.print(t)
-
-    def rebalance(self) -> None:
-        capital = float(Prompt.ask("Capital to deploy (₹)", default="1000000"))
-        top_n = int(Prompt.ask("Number of momentum stocks (custom allocation)",
-                               default=str(self.config.position_sizing.target_positions)))
-        holdings = _ask_holdings()
-        with console.status("[green]planning momentum allocation..."):
-            plan = A.plan_rebalance(self.config, capital, holdings=holdings, top_n=top_n)
-        console.print(f"[bold]Target portfolio[/bold]  as of {plan.as_of}  regime {plan.regime}")
-        tt = Table("Symbol", "Wt%", "Qty", "Value ₹", box=None)
-        for t in plan.targets:
-            tt.add_row(t.symbol, f"{t.weight:.1%}", str(t.quantity), f"{t.target_value:,.0f}")
-        console.print(tt)
-        if plan.orders:
-            ot = Table("Action", "Symbol", "Qty", "≈Value ₹", box=None, title="Orders")
-            for o in plan.orders:
-                ot.add_row(o.action, o.symbol, str(o.quantity), f"{o.value:,.0f}")
-            console.print(ot)
-
-    def swing(self) -> None:
-        capital = float(Prompt.ask("Overall swing allocation (₹)", default="500000"))
-        hb_slots = int(Prompt.ask("high_base_52w slots", default="3"))
-        rsi_slots = int(Prompt.ask("rsi2_pullback (ryner) slots", default="2"))
-        d = _ask_date("As-of date", date.today())
-        with console.status("[green]running both swing scanners..."):
-            plan = A.swing_allocation_plan(
-                capital, hb_slots=hb_slots, rsi_slots=rsi_slots, as_of=d)
-        console.print(Panel(
-            f"capital [bold]₹{plan.capital:,.0f}[/bold]   "
-            f"partition [bold]high_base×{plan.hb_slots} + rsi2×{plan.rsi_slots}[/bold]   "
-            f"per-slot [bold]₹{plan.per_trade:,.0f}[/bold]   as of [bold]{plan.as_of}[/bold]\n"
-            f"[dim]fixed partition beats shared pool & both solos on the same capital "
-            f"(nightlog Part 13: PF 1.50, MaxDD −9.4% @ 35bp, 2021→2026)[/dim]",
-            title="Swing allocation plan", style="cyan",
-        ))
-        t = Table("Strategy", "Slot", "Ticker", "Close ₹", "Qty", "Alloc ₹",
-                  "Stop ₹", "Stop%", "Rotate ≤", box=None)
-        for s in plan.slots:
-            if s.ticker:
-                t.add_row(
-                    s.strategy, str(s.slot), s.ticker, f"{s.close:,.1f}",
-                    str(s.quantity), f"{s.allocation:,.0f}",
-                    f"{s.suggested_stop:,.1f}", f"-{s.stop_pct:.1f}%",
-                    f"{s.time_stop_days}d",
-                )
-            else:
-                t.add_row(s.strategy, str(s.slot), "[dim]— hold cash —[/dim]",
-                          "", "0", "0", "", "", f"{s.time_stop_days}d")
-        console.print(t)
-        console.print(
-            f"[bold]Allocated ₹{plan.total_allocated:,.0f}[/bold]   "
-            f"cash reserve ₹{plan.cash_reserve:,.0f}")
-        console.print(Panel(
-            "Rotation guidance — check exits on every close (EOD):\n"
-            "• [bold]high_base_52w[/bold]: exit close < 21-EMA, hard stop entry−3×ATR, "
-            "forced rotation at 30 trading days. Typical hold ~10d (~1 rotation/month/slot).\n"
-            "• [bold]rsi2_pullback[/bold]: exit close > 5-SMA or RSI(2) ≥ 70, stop 1.5×ATR, "
-            "forced rotation at 20 trading days. Typical hold ~2-3d (~5+ rotations/month/slot).\n"
-            "• A freed slot is refilled from that scanner's next-ranked candidate — "
-            "re-run this menu after any exit.",
-            title="Suggested rotation days", style="yellow",
-        ))
+        console.print("[dim]Score = strategy momentum score (higher = stronger) · 52W% = nearness "
+                      "to 52-week high · ₹Cr/day = liquidity · 200SMA ✓ = uptrend. These have "
+                      "already run — mind valuation, and diligence before buying.[/dim]")
 
     def emerging_scan(self) -> None:
         top = int(Prompt.ask("Show top N", default="15"))
@@ -284,7 +242,7 @@ class App:
             f"as of [bold]{res.as_of}[/bold]   [dim]{res.candidates_scanned} rank-climbers scanned, "
             f"{res.total_passing} passed early-momentum filters[/dim]\n"
             f"[dim]stocks EARLY in a move (liquidity rank climbing + breaking toward highs, "
-            f"12m return capped) — the pre-run complement to menu 8. Diligence each pick before acting.[/dim]",
+            f"12m return capped) — the pre-run complement to menu 7. Diligence each pick before acting.[/dim]",
             title="Emerging momentum scan", style="cyan",
         ))
         t = Table("#", "Ticker", "Sector", "Rank 2y→now", "3M", "6M", "12M",
@@ -298,52 +256,82 @@ class App:
                 f"{s.daily_turnover / 1e7:.0f}",
             )
         console.print(t)
+        console.print("[dim]Rank 2y→now = liquidity-rank climb (falling number = getting more "
+                      "liquid) · Accel = recent-leg strength · Vol = annualised volatility. Early "
+                      "movers — weigh cash-flow quality & pledge heavily in diligence.[/dim]")
 
     def fresh_allocation(self) -> None:
-        console.print("[dim]Stateless allocation — enter fresh amounts, no holdings. "
-                      "0 skips a sleeve.[/dim]")
+        console.print("[dim]Stateless plan — enter fresh amounts to deploy (no existing "
+                      "holdings needed). Type 0 for a sleeve to skip it.[/dim]")
         mom = float(Prompt.ask("Momentum ₹ to deploy", default="1000000"))
+        mom_n = None
+        if mom > 0:
+            mom_n = int(Prompt.ask("  → how many momentum stocks to shortlist",
+                                   default=str(self.config.position_sizing.target_positions)))
         sw = float(Prompt.ask("Swing ₹ to deploy", default="500000"))
-        with console.status("[green]building fresh allocation (both sleeves)..."):
-            plan = A.fresh_allocation(self.config, momentum_capital=mom, swing_capital=sw)
+        hb, rs = 3, 2
+        if sw > 0:
+            hb = int(Prompt.ask("  → swing: high-base (breakout) slots", default="3"))
+            rs = int(Prompt.ask("  → swing: RSI-pullback slots", default="2"))
+        if mom <= 0 and sw <= 0:
+            console.print("[yellow]Nothing to allocate — both amounts were 0.[/yellow]")
+            return
+
+        with console.status("[green]building fresh allocation..."):
+            plan = A.fresh_allocation(self.config, momentum_capital=mom, swing_capital=sw,
+                                      momentum_top_n=mom_n, hb_slots=hb, rsi_slots=rs)
+
         style = {"defensive": "red", "caution": "yellow"}.get(plan.regime, "green")
         console.print(Panel(
-            f"as of [bold]{plan.as_of}[/bold]   regime [bold]{plan.regime.upper()}[/bold]\n"
+            f"as of [bold]{plan.as_of}[/bold]    regime [bold]{plan.regime.upper()}[/bold]    "
+            f"total [bold]{_inr(plan.momentum_capital + plan.swing_capital)}[/bold]\n"
             f"[dim]{plan.regime_hint}[/dim]",
             title="Fresh allocation plan", style=style,
         ))
+
         if plan.momentum_rows:
-            t = Table("Sym", "Wt", "Qty", "Value ₹", "ADV%", "⚠", box=None,
-                      title=f"Momentum sleeve (₹{plan.momentum_capital:,.0f})")
+            deployed = sum(r.value for r in plan.momentum_rows)
+            t = Table("Ticker", "Wt", "Qty", "Value ₹", "ADV%", "flag", box=None,
+                      title=f"Momentum — {_inr(plan.momentum_capital)} across "
+                            f"{len(plan.momentum_rows)} stocks")
             for r in plan.momentum_rows:
-                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "-"
-                flags = ("↔" if r.overlap else "") + ("!" if r.adv_warn else "")
-                t.add_row(r.symbol, r.detail, str(r.quantity), f"{r.value:,.0f}", advp, flags)
+                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "—"
+                t.add_row(r.symbol, r.detail, f"{r.quantity:,}", f"{r.value:,.0f}", advp,
+                          self._flag(r))
             console.print(t)
             if plan.defensive_rows:
-                buf = "   ".join(f"{r.symbol} {r.detail} (₹{r.value:,.0f})"
+                buf = "   ".join(f"{r.symbol} {r.detail} ({_inr(r.value)})"
                                  for r in plan.defensive_rows)
-                console.print(f"[dim]defensive buffer (regime overlay): {buf} — buy these ETFs "
-                              f"separately for the gold/cash cushion[/dim]")
-            console.print(f"[dim]momentum cash residue ₹{plan.momentum_cash:,.0f}[/dim]")
+                console.print(f"  [dim]defensive buffer (regime overlay): {buf} — buy these "
+                              f"ETFs separately for the gold/cash cushion[/dim]")
+            console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
+                          f"{_inr(plan.momentum_cash)}[/dim]")
+
         if plan.swing_rows:
-            t = Table("Strategy", "Sym", "Qty", "Value ₹", "Stop ₹", "Rotate", "ADV%", "⚠",
-                      box=None, title=f"Swing sleeve (₹{plan.swing_capital:,.0f})")
+            deployed = sum(r.value for r in plan.swing_rows)
+            t = Table("Strategy", "Ticker", "Qty", "Value ₹", "Stop ₹", "Rotate≤", "ADV%", "flag",
+                      box=None, title=f"Swing — {_inr(plan.swing_capital)} (high-base×{hb} + rsi2×{rs})")
             for r in plan.swing_rows:
-                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "-"
-                flags = ("↔" if r.overlap else "") + ("!" if r.adv_warn else "")
-                t.add_row(r.detail, r.symbol, str(r.quantity), f"{r.value:,.0f}",
-                          f"{r.stop:,.1f}" if r.stop else "-",
-                          f"{r.rotation_days}d" if r.rotation_days else "-", advp, flags)
+                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "—"
+                t.add_row(r.detail, r.symbol, f"{r.quantity:,}", f"{r.value:,.0f}",
+                          f"{r.stop:,.1f}" if r.stop else "—",
+                          f"{r.rotation_days}d" if r.rotation_days else "—", advp, self._flag(r))
             console.print(t)
-            console.print(f"[dim]swing cash residue ₹{plan.swing_cash:,.0f}[/dim]")
+            console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
+                          f"{_inr(plan.swing_cash)}[/dim]")
+
         if plan.overlaps:
             console.print(Panel(
-                f"[bold]↔ Overlap — appears in BOTH sleeves:[/bold] {', '.join(plan.overlaps)}\n"
-                "[dim]You'd be buying the same name twice — consider netting to one sleeve.[/dim]",
-                style="yellow"))
-        console.print("[dim]↔ = cross-sleeve overlap   ! = slot is a large % of the stock's "
-                      "daily volume (fill-risk). Approx quantities — verify before ordering.[/dim]")
+                f"[bold]↔ {', '.join(plan.overlaps)}[/bold] appears in BOTH sleeves — you'd buy "
+                "it twice. Consider keeping it in one sleeve only.", style="yellow"))
+        console.print("[dim]Legend: ↔ = in both sleeves · ! = order is a large % of the stock's "
+                      "daily volume (harder to fill). Quantities are approximate.\n"
+                      "Next: diligence each name (options 7/8 give context; pair with the "
+                      "StockEdge MCP) before placing orders. Re-run after any swing exit.[/dim]")
+
+    @staticmethod
+    def _flag(r) -> str:
+        return ("↔" if r.overlap else "") + ("!" if r.adv_warn else "") or "·"
 
     # ---- loop --------------------------------------------------------------
     def run(self) -> None:
@@ -353,11 +341,10 @@ class App:
             choice = Prompt.ask("\nSelect option", default="0")
             handlers = {
                 "1": self.universe_update, "2": self.universe_query,
-                "3": self.select_strategy, "4": self.select_universe,
-                "5": self.backtest, "6": self.market_phases,
-                "7": self.market_check, "8": self.momentum_scan,
-                "9": self.rebalance, "10": self.swing,
-                "11": self.emerging_scan, "12": self.fresh_allocation,
+                "3": self.settings,
+                "4": self.backtest, "5": self.market_phases, "6": self.market_check,
+                "7": self.momentum_scan, "8": self.emerging_scan,
+                "9": self.fresh_allocation,
             }
             if choice == "0":
                 console.print("[dim]bye[/dim]")
@@ -377,16 +364,14 @@ def _ask_date(label: str, default: date) -> date:
     return datetime.fromisoformat(raw).date()
 
 
-def _ask_holdings() -> Optional[dict]:
-    raw = Prompt.ask("Current holdings as SYMBOL:QTY,... (blank = none)", default="").strip()
-    if not raw:
-        return None
-    out = {}
-    for part in raw.split(","):
-        sym, _, qty = part.partition(":")
-        if sym.strip() and qty.strip():
-            out[sym.strip().upper()] = int(qty)
-    return out
+def _inr(x: float) -> str:
+    """Indian-readable rupee amount: 1e5 -> ₹1.00L, 1e7 -> ₹1.00Cr."""
+    x = float(x)
+    if abs(x) >= 1e7:
+        return f"₹{x / 1e7:.2f}Cr"
+    if abs(x) >= 1e5:
+        return f"₹{x / 1e5:.2f}L"
+    return f"₹{x:,.0f}"
 
 
 def main() -> None:

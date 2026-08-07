@@ -21,20 +21,26 @@ First launch builds a local DuckDB from the committed parquet (a few seconds,
 one-time). Then you get an interactive menu:
 
 ```
-1   Universe update                rebuild / fetch latest NSE data
-2   Universe query                 PIT members / rank / snapshot / coverage
-3   Select strategy                dual / emerging / regime_switched momentum
-4   Select universe + rank range   v1/v2, e.g. ranks 201-600
-5   Backtest                       historical simulation
-6   Market phases                  per-phase returns vs NIFTY, 2013 -> date
-7   Market / trigger check         current regime from latest data
-8   Momentum scan                    top-N momentum-ranked stocks + per-stock metrics
-9   Momentum allocation / rebalance  capital + N stocks -> momentum picks + orders
-10  Swing allocation plan            capital -> 3+2 slot split, qty + rotation days
-11  Emerging momentum scan           rank-climbing + early momentum (pre-run names)
-12  Fresh allocation plan            enter ₹ -> combined momentum+swing breakup, no holdings
+ DATA
+1   Universe update          fetch + full sync + data-integrity check
+2   Universe query           PIT members / rank / snapshot / coverage
+3   Settings                 strategy · universe version · rank band
+ RESEARCH
+4   Backtest                 historical simulation over a custom window
+5   Market phases            per-phase returns vs NIFTY, 2013 -> date
+6   Market / regime check    current regime, VIX, defensive allocation
+ DISCOVER
+7   Momentum scan            established-momentum leaders + metrics
+8   Emerging momentum scan   rank-climbing, pre-run names (early stage)
+ ALLOCATE
+9   Fresh allocation plan    enter ₹ -> momentum + swing buy plan (no holdings)
 0   Exit
 ```
+
+The menu groups into four jobs — **manage data → research → discover names →
+size a buy plan**. Allocation is stateless: you never enter existing holdings,
+just the ₹ to deploy per sleeve (and how many stocks), and get a combined
+momentum+swing breakup with quantities, stops, overlap flags and rotation days.
 
 ## Credential-free by design
 
@@ -188,7 +194,7 @@ match the midcap indices — while adding a regime-based defensive overlay
 (gold/cash in stress) that passive index holding lacks.
 
 **Which wins where** — mean per-phase alpha vs NIFTY 50 across the 2013→2026
-market-phase timeline (reproduce via menu option 6):
+market-phase timeline (reproduce via menu option 5):
 
 | Regime | dual_momentum | emerging_momentum |
 |---|--:|--:|
