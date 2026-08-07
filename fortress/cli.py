@@ -23,7 +23,7 @@ console = Console()
 MENU = [
     ("§", "DATA"),
     ("1", "Universe update", "fetch + full sync + integrity check"),
-    ("2", "Universe query", "PIT members / rank / coverage"),
+    ("2", "Universe query", "search · screen by tier · browse lists"),
     ("3", "Settings", "strategy · universe · rank band"),
     ("§", "RESEARCH"),
     ("4", "Backtest", "historical sim, custom window"),
@@ -114,34 +114,63 @@ class App:
         else:
             console.print("[green]Data-integrity check: clean (adjustments in step with prices).[/green]")
 
+    _TIER_LEGEND = ("[dim]tier = 6-month turnover-rank band (LARGE 1-100 · MID 101-250 · "
+                    "SMALL 251-500 · MICRO 501-1000), NOT market cap. For true mcap, "
+                    "cross-check StockEdge.[/dim]")
+
+    def _rowtable(self, rows, title: str) -> None:
+        t = Table("Rank", "Symbol", "₹Cr/day", "Tier", "Sector", box=None, title=title)
+        for r in rows:
+            t.add_row(str(r.rank), r.symbol, f"{r.turnover / 1e7:.1f}", r.tier,
+                      (r.sector or "")[:18])
+        console.print(t)
+
     def universe_query(self) -> None:
         UQ = A.universe_query
-        v = Prompt.ask("Universe version", choices=["v1", "v2"],
-                       default=self.config.universe.version)
-        kind = Prompt.ask("Query", choices=["members", "rank", "snapshot", "indices", "health"],
-                          default="members")
-        if kind == "indices":
-            console.print("Named indices: " + ", ".join(UQ.list_indices(v)))
-            return
-        if kind == "health":
+        v = self.config.universe.version
+        kind = Prompt.ask("Query", choices=["search", "screen", "lists", "coverage"],
+                          default="search")
+
+        if kind == "coverage":
             console.print(UQ.coverage(v))
             return
+
         d = _ask_date("As-of date", date.today())
-        if kind == "members":
-            idx = Prompt.ask("Index", choices=UQ.list_indices(v), default="nifty_500")
-            m = UQ.members_on(d, idx, v)
-            more = f"  ... (+{len(m) - 40})" if len(m) > 40 else ""
-            console.print(f"[green]{len(m)} members of {idx} on {d}:[/green]\n" + ", ".join(m[:40]) + more)
-        elif kind == "rank":
-            sym = Prompt.ask("Symbol").upper()
-            r = UQ.rank_of(sym, d, v)
-            console.print(f"rank({sym}, {d}) = [bold]{r if r is not None else 'not ranked'}[/bold]")
-        elif kind == "snapshot":
-            df = UQ.snapshot_on(d, v, top=20)
-            t = Table("Rank", "Symbol", "Metric (₹ turnover)", box=None)
-            for _, row in df.iterrows():
-                t.add_row(str(int(row["rank"])), row["symbol"], f"{row['metric_value']:,.0f}")
-            console.print(t)
+
+        if kind == "search":
+            term = Prompt.ask("Search term (part of a ticker, e.g. BAJAJ)").strip()
+            rows, asof = UQ.search(term, d, v)
+            if not rows:
+                console.print(f"[yellow]No ranked ticker contains '{term}' as of {asof}.[/yellow]")
+                return
+            self._rowtable(rows, f"'{term}' — {len(rows)} match(es), as-of {asof}")
+            console.print(self._TIER_LEGEND)
+
+        elif kind == "screen":
+            lo = int(Prompt.ask("Rank band — low", default="1"))
+            hi = int(Prompt.ask("Rank band — high", default="1000"))
+            tier = Prompt.ask("Tier filter", choices=["all"] + [t.lower() for t in UQ.TIER_NAMES],
+                              default="all")
+            mint = float(Prompt.ask("Min turnover (₹cr/day)", default="0"))
+            top = int(Prompt.ask("Show top N", default="30"))
+            rows, bd, asof, total = UQ.screen(d, v, rank_lo=lo, rank_hi=hi,
+                                              tier=tier, min_turnover_cr=mint, top=top)
+            if not rows:
+                console.print("[yellow]No stocks match those criteria.[/yellow]")
+                return
+            self._rowtable(rows, f"Screen — showing {len(rows)} of {total} matches, as-of {asof}")
+            crumb = " · ".join(f"{n} {bd[n]}" for n in UQ.TIER_NAMES if bd[n])
+            console.print(f"[dim]{total} match · breakdown: {crumb}[/dim]")
+            console.print(self._TIER_LEGEND)
+
+        elif kind == "lists":
+            tier = Prompt.ask("Which list", choices=[t.lower() for t in UQ.TIER_NAMES],
+                              default="mid")
+            top = int(Prompt.ask("Show top N (0 = all)", default="40"))
+            rows, asof, total = UQ.tier_members(d, tier, v, top=top or 10_000)
+            self._rowtable(rows[:top] if top else rows,
+                           f"{tier.upper()} list — {total} names, as-of {asof}")
+            console.print(self._TIER_LEGEND)
 
     def settings(self) -> None:
         """Session settings: strategy + universe version + rank band. These drive
