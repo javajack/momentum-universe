@@ -178,20 +178,41 @@ class App:
             console.print(self._TIER_LEGEND)
 
         elif kind == "screen":
-            lo = int(Prompt.ask("Rank band — low", default="1"))
-            hi = int(Prompt.ask("Rank band — high", default="1000"))
-            console.print("[dim]Tier filter:[/dim]")
-            tier = self._pick("Tier", ["all"] + [t.lower() for t in UQ.TIER_NAMES], "all")
-            mint = float(Prompt.ask("Min turnover (₹cr/day)", default="0"))
+            # Scope is ONE rank dimension — a cap tier IS a preset band, so pick
+            # exactly one: whole universe, a tier's band, or a custom range.
+            console.print("[dim]Scope — the rank range to screen (a cap tier is just a preset "
+                          "band; ranks run by turnover, so lower = smaller/thinner):[/dim]")
+            scope = self._pick(
+                "Scope", ["all"] + [t.lower() for t in UQ.TIER_NAMES] + ["custom"], "all",
+                descriptions=["whole ranked universe"]
+                + [f"ranks {lo}-{hi}" for _n, lo, hi in UQ.TIER_BANDS]
+                + ["enter your own rank low/high"])
+            if scope == "all":
+                lo, hi = 1, 100_000
+            elif scope == "custom":
+                lo = int(Prompt.ask("Rank band — low", default="1"))
+                hi = int(Prompt.ask("Rank band — high", default="2000"))
+            else:
+                lo, hi = next((l, h) for n, l, h in UQ.TIER_BANDS if n == scope.upper())
+            mint = float(Prompt.ask("Min turnover (₹cr/day, 0 = no floor)", default="0"))
             top = int(Prompt.ask("Show top N", default="30"))
             rows, bd, asof, total = UQ.screen(d, v, rank_lo=lo, rank_hi=hi,
-                                              tier=tier, min_turnover_cr=mint, top=top)
+                                              min_turnover_cr=mint, top=top)
             if not rows:
-                console.print("[yellow]No stocks match those criteria.[/yellow]")
+                hint = ""
+                if mint > 0 and lo >= 250:
+                    hint = (f"\n[dim]Tip: names ranked {lo}-{hi} are low-turnover by construction "
+                            f"(rank IS turnover order) — a {mint:g} ₹cr/day floor filters them all "
+                            f"out. Drop the floor toward 0 to see them.[/dim]")
+                console.print(f"[yellow]No stocks in ranks {lo}-{hi}"
+                              f"{f' above {mint:g} ₹cr/day' if mint > 0 else ''} as of {asof}."
+                              f"[/yellow]{hint}")
                 return
-            self._rowtable(rows, f"Screen — showing {len(rows)} of {total} matches, as-of {asof}")
+            scope_lbl = "all ranks" if scope == "all" else f"ranks {lo}-{hi}"
+            self._rowtable(rows, f"Screen [{scope_lbl}] — showing {len(rows)} of {total} matches, "
+                                 f"as-of {asof}")
             crumb = " · ".join(f"{n} {bd[n]}" for n in UQ.TIER_NAMES if bd[n])
-            console.print(f"[dim]{total} match · breakdown: {crumb}[/dim]")
+            console.print(f"[dim]{total} match · tier breakdown: {crumb}[/dim]")
             console.print(self._TIER_LEGEND)
 
         elif kind == "lists":
