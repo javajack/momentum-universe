@@ -209,40 +209,47 @@ class App:
             else:
                 rank_lo, rank_hi = next((lo, hi) for n, lo, hi in UQ.TIER_BANDS
                                         if n == focus.upper())
-            mint = float(Prompt.ask("Min turnover (₹cr/day)", default="1"))
+            mint = float(Prompt.ask("Min turnover (₹cr/day, tradeable floor)", default="10"))
             top = int(Prompt.ask("Show top N", default="25"))
             excl = Prompt.ask("Exclude recent IPOs? (float onboarding ≠ markup) [Y/n]",
                               default="y").lower() == "y"
-            capraw = Prompt.ask("Runway cap — drop names already up more than X% in 12m "
-                                "(blank = no cap)", default="").strip()
-            cap = float(capraw) if capraw else None
+            console.print("[dim]Preset — accumulation: EARLY (still basing, above 200SMA, not yet "
+                          "run) · runway: not-yet-parabolic · all: unfiltered (mostly already-run).[/dim]")
+            preset = Prompt.ask("Preset", choices=["accumulation", "runway", "all"],
+                                default="accumulation")
+            kw = {}
+            if preset == "accumulation":
+                kw = dict(require_above_200sma=True, max_6m_return=30.0, max_12m_return=60.0)
+            elif preset == "runway":
+                kw = dict(max_12m_return=100.0)
             with console.status(f"[green]scanning rank velocity + price momentum "
-                                f"(ranks {rank_lo}-{rank_hi})..."):
+                                f"(ranks {rank_lo}-{rank_hi}, {preset})..."):
                 rows, now_asof, past_asof, _pm = UQ.rank_velocity(
                     d, lookback_months=lb, rank_lo=rank_lo, rank_hi=rank_hi,
-                    min_turnover_cr=mint, top=top, exclude_ipos=excl, max_12m_return=cap)
+                    min_turnover_cr=mint, top=top, exclude_ipos=excl, **kw)
             if not rows:
                 console.print("[yellow]No climbers match those criteria.[/yellow]")
                 return
-            t = Table("Symbol", "then→now", "Δclimb", "IPO?", "6M", "12M", "200SMA",
+            t = Table("Symbol", "then→now", "Δclimb", "IPO?", "6M", "12M", "OffHi", "200",
                       "₹Cr/day", "Tier", "Sector", box=None,
-                      title=f"Rank climbers, ranks {rank_lo}-{rank_hi} — "
+                      title=f"Rank climbers, ranks {rank_lo}-{rank_hi} [{preset}] — "
                             f"{past_asof} → {now_asof} ({len(rows)} names)")
             for r in rows:
                 traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
                 delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
                 r6 = f"{r.ret_6m_pct:+.0f}%" if r.ret_6m_pct is not None else "—"
                 r12 = f"{r.ret_12m_pct:+.0f}%" if r.ret_12m_pct is not None else "—"
+                offhi = f"{r.off_high_pct:.0f}%" if r.off_high_pct is not None else "—"
                 sma = "✓" if r.above_200sma else ("·" if r.above_200sma is not None else "—")
-                t.add_row(r.symbol, traj, delta, "IPO" if r.is_ipo else "", r6, r12, sma,
+                t.add_row(r.symbol, traj, delta, "IPO" if r.is_ipo else "", r6, r12, offhi, sma,
                           f"{r.turnover / 1e7:.1f}", r.tier, (r.sector or "")[:16])
             console.print(t)
-            console.print("[magenta]⚑ Research watchlist — NOT a buy list. Sweet spot for a "
-                          "many-bagger: rank climbing + price above 200SMA + moving but NOT yet "
-                          "parabolic (runway ahead). Confirm the catalyst via StockEdge / news.[/magenta]")
-            console.print("[dim]Δclimb ≥ = new entrant (from beyond old depth) · 6M/12M = price "
-                          "return (is it moving?) · 200SMA ✓ = uptrend · IPO = recent listing "
-                          "(climb is float onboarding, not a markup).[/dim]")
+            console.print("[magenta]⚑ Research watchlist — NOT a buy list. EARLY sweet spot: rank "
+                          "climbing + above 200SMA + price still BASING (low 6M) + near its high "
+                          "(OffHi ~0). Confirm the catalyst via StockEdge / news.[/magenta]")
+            console.print("[dim]Δclimb ≥ = new entrant · 6M/12M = price return · OffHi = % below "
+                          "52w-high (0 = at high; −30 = faded from a peak) · 200 ✓ = above 200SMA "
+                          "· IPO = recent listing (float onboarding, not a markup).[/dim]")
 
     def settings(self) -> None:
         """Session settings: strategy + universe version + rank band. These drive

@@ -65,9 +65,15 @@ Append to `~/.codex/config.toml`:
   stock's rank trajectory, 3/6/12m returns, proximity, acceleration,
   volatility, turnover. Purely technical — diligence each pick (below).
 - rank_velocity(lookback_months=6, top_n=25, rank_lo=251, rank_hi=2000,
-    min_turnover_cr=1.0, min_climb=150, exclude_ipos=True, max_12m_return=None)
-  (rank_lo/rank_hi select the current-rank band to hunt in — a cap tier's band
-  or a custom range like 1000-1500; default 251-2000 = deep tail.)
+    min_turnover_cr=10.0, min_climb=150, exclude_ipos=True, max_12m_return=None,
+    max_6m_return=None, require_above_200sma=False)
+  (rank_lo/rank_hi = current-rank band — a cap tier's band or a custom range
+  like 1000-1500; default 251-2000 = deep tail. Each row carries off_high_pct
+  = % below the 52-week high, so a faded name is visible. ACCUMULATION/early
+  preset — rank-climb is coincident/lagging, so to catch names STILL BASING
+  (money ahead) set require_above_200sma=True + a low max_6m_return like 30 +
+  max_12m_return like 60. Validated: raw climbers are 100% real companies but
+  mostly LATE; this preset isolates the genuine-early subset.)
   RESEARCH radar for EARLY MULTIBAGGERS (not a buy list): deep-tail stocks
   climbing the turnover rank FASTEST (fast climbers + new entrants, to rank
   2000), enriched with PRICE momentum. Turnover-rank climb is a LIQUIDITY

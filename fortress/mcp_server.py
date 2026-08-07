@@ -279,10 +279,12 @@ def build_server():
         top_n: int = 25,
         rank_lo: int = 251,
         rank_hi: int = 2000,
-        min_turnover_cr: float = 1.0,
+        min_turnover_cr: float = 10.0,
         min_climb: int = 150,
         exclude_ipos: bool = True,
         max_12m_return: Optional[float] = None,
+        max_6m_return: Optional[float] = None,
+        require_above_200sma: bool = False,
     ) -> dict:
         """Rank-velocity radar for EARLY multibaggers: deep-tail stocks climbing
         the turnover rank FASTEST (fast climbers + new entrants, to depth 2000),
@@ -295,8 +297,12 @@ def build_server():
         not a markup); max_12m_return drops already-parabolic names (momentum
         behind). rank_lo/rank_hi select the CURRENT-rank band to hunt in (a cap
         tier's band — LARGE 1-100 … NANO 1001-2000 — or a custom range like
-        1000-1500; default 251-2000 = deep tail). Sweet spot: climbing + above
-        200SMA + moving but not parabolic."""
+        1000-1500; default 251-2000 = deep tail). ACCUMULATION (early) preset:
+        rank-climb is coincident/lagging, so high velocity + high return = already
+        run. To catch names STILL BASING (money ahead) set require_above_200sma=
+        True + a low max_6m_return (e.g. 30) + max_12m_return (e.g. 60). Each row
+        carries off_high_pct (% below the 52-week high) so a faded name (positive
+        point-to-point but down from a peak) is visible."""
         from datetime import date as _date
 
         from fortress import actions as A
@@ -305,7 +311,8 @@ def build_server():
                 _date.today(), lookback_months=lookback_months, top=top_n,
                 rank_lo=rank_lo, rank_hi=rank_hi,
                 min_turnover_cr=min_turnover_cr, min_climb=min_climb,
-                exclude_ipos=exclude_ipos, max_12m_return=max_12m_return)
+                exclude_ipos=exclude_ipos, max_12m_return=max_12m_return,
+                max_6m_return=max_6m_return, require_above_200sma=require_above_200sma)
         return {
             "as_of": _to_jsonable(now_asof),
             "compared_to": _to_jsonable(past_asof),
@@ -316,6 +323,7 @@ def build_server():
                 "new_entrant": r.new_entrant, "velocity": r.velocity,
                 "is_ipo": r.is_ipo, "ret_6m_pct": r.ret_6m_pct,
                 "ret_12m_pct": r.ret_12m_pct, "above_200sma": r.above_200sma,
+                "off_high_pct": r.off_high_pct,
                 "tier": r.tier, "daily_turnover": r.turnover, "sector": r.sector,
             } for r in rows],
         }

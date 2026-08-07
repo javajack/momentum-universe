@@ -124,6 +124,7 @@ class ClimberRow:
     ret_6m_pct: Optional[float] = None
     ret_12m_pct: Optional[float] = None
     above_200sma: Optional[bool] = None
+    off_high_pct: Optional[float] = None   # % below the 52-week high (0 = at high; -30 = faded)
 
 
 def _climber_velocity(rank_now: int, rank_past: Optional[int], past_max: int
@@ -174,19 +175,23 @@ def _price_context(symbols: List[str], as_of: date) -> Dict[str, dict]:
             continue
         c = df["close"]
         n = len(c)
+        px = float(c.iloc[-1])
         def ret(bars):
             return float(c.iloc[-1] / c.iloc[-1 - bars] - 1) * 100 if n > bars else None
         sma200 = float(c.iloc[-200:].mean()) if n >= 200 else None
+        high_252 = float(c.iloc[-252:].max()) if n >= 2 else px
         out[sym] = {"r6": ret(126), "r12": ret(252),
-                    "above200": (float(c.iloc[-1]) > sma200) if sma200 else None}
+                    "above200": (px > sma200) if sma200 else None,
+                    "off_high": (px / high_252 - 1) * 100 if high_252 else None}
     return out
 
 
 def rank_velocity(
     as_of: date, version: str = "v1", *, lookback_months: int = 6,
-    top: int = 25, min_turnover_cr: float = 1.0, min_climb: int = 150,
+    top: int = 25, min_turnover_cr: float = 10.0, min_climb: int = 150,
     rank_lo: int = 251, rank_hi: int = 2000, exclude_ipos: bool = False,
     ipo_window_months: int = 12, max_12m_return: Optional[float] = None,
+    max_6m_return: Optional[float] = None, require_above_200sma: bool = False,
 ) -> Tuple[List[ClimberRow], date, date, int]:
     """Deep-tail turnover-rank climbers (fast climbers + new entrants) enriched
     with PRICE context — a radar for 'sudden interest' names OUTSIDE the popular
@@ -202,8 +207,17 @@ def rank_velocity(
     tier's band (LARGE 1-100 … NANO 1001-2000) or a custom range (e.g. 1000,
     1500). Default 251-2000 = the deep tail, outside the popular cap lists.
 
-    Defaults: v1 (raw rank to depth 2000; v2's filter hides emergents).
-    Returns (rows sorted by velocity, now as-of, past as-of, past depth)."""
+    ACCUMULATION (early) preset: rank-climb is coincident/lagging, so high
+    velocity + high return = already run. To catch names STILL BASING (money
+    ahead) set require_above_200sma=True (a base, not distress) + a low
+    max_6m_return (e.g. 30 — not yet marked up) + max_12m_return (e.g. 60 —
+    not yet a multibagger). Each row also carries off_high_pct (% below the
+    52-week high) so a faded name (positive point-to-point but down from a peak)
+    is visible.
+
+    Defaults: v1 (raw rank to depth 2000); min_turnover 10 ₹cr/day (tradeable —
+    lower it to explore the thin deep tail). Returns (rows sorted by velocity,
+    now as-of, past as-of, past depth)."""
     u = _universe(version)
     now_snap = u.universe_at(as_of)
     past_snap = u.universe_at(as_of - timedelta(days=int(lookback_months * 30.4)))
@@ -238,8 +252,13 @@ def rank_velocity(
         c.is_ipo = _is_recent_entrant(first_seen.get(c.symbol), now_asof, ipo_window_months)
         px = prices.get(c.symbol, {})
         c.ret_6m_pct, c.ret_12m_pct = px.get("r6"), px.get("r12")
-        c.above_200sma = px.get("above200")
+        c.above_200sma, c.off_high_pct = px.get("above200"), px.get("off_high")
         if exclude_ipos and c.is_ipo:
+            continue
+        if require_above_200sma and c.above_200sma is not True:   # base, not distress
+            continue
+        if (max_6m_return is not None and c.ret_6m_pct is not None
+                and c.ret_6m_pct > max_6m_return):      # still basing, not marked up
             continue
         if (max_12m_return is not None and c.ret_12m_pct is not None
                 and c.ret_12m_pct > max_12m_return):    # already parabolic -> momentum behind
