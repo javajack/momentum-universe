@@ -47,24 +47,39 @@ class App:
 
     # ---- rendering helpers -------------------------------------------------
     def _menu(self) -> None:
-        console.print(Panel(
-            "[bold bright_cyan]MOMENTUM UNIVERSE[/bold bright_cyan]\n"
-            f"[white]strategy: {self.config.active_strategy}  |  universe: "
-            f"v{self.config.universe.version[-1]} ranks {self.config.universe.rank_range}[/white]",
-            style="bright_blue",
+        cfg = self.config
+        rr = cfg.universe.rank_range
+        console.print()
+        console.print(Panel.fit(
+            f"[bold bright_cyan]MOMENTUM UNIVERSE[/]\n"
+            f"[dim]{cfg.active_strategy} · v{cfg.universe.version[-1]} · "
+            f"ranks {rr[0]}-{rr[1]}[/dim]",
+            border_style="bright_blue", padding=(0, 3),
         ))
-        t = Table(show_header=False, box=None, padding=(0, 2))
-        t.add_column("Key", style="cyan bold", width=3)
-        t.add_column("Option", style="white", width=26)
-        t.add_column("Description", style="dim")
+
+        def _new_table() -> Table:
+            t = Table(show_header=False, box=None, padding=(0, 1))
+            t.add_column("Key", style="bold cyan", justify="right", width=4)
+            t.add_column("Option", style="white", width=24, no_wrap=True)
+            t.add_column("Description", style="dim", no_wrap=True)
+            return t
+
+        t = None
         for row in MENU:
-            if len(row) == 2:                       # section header (or spacer)
-                _, name = row
-                t.add_row("", f"[bold dim]{name}[/bold dim]" if name else "", "")
+            if len(row) == 2:                       # section header / spacer -> flush
+                if t is not None:
+                    console.print(t)
+                    t = None
+                name = row[1]
+                if name:
+                    console.print(f"\n[bold yellow]  {name}[/]")
             else:
                 k, opt, desc = row
+                if t is None:
+                    t = _new_table()
                 t.add_row(k, opt, desc)
-        console.print(t)
+        if t is not None:
+            console.print(t)
 
     # ---- handlers (thin: gather input -> action -> render) -----------------
     def universe_update(self) -> None:
