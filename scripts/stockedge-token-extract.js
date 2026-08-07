@@ -11,40 +11,66 @@
 //        mv ~/Downloads/stockedge-tokens.json ~/.config/stockedge/tokens.json
 //   4. Retry the MCP call.
 //
-// If it prints "No token pair found", StockEdge changed its storage keys —
-// run  Object.keys(localStorage).concat(Object.keys(sessionStorage))  and
-// share the KEY NAMES (not values) so the finder below can be tuned.
+// If the token pair can't be found, this script auto-prints a STRUCTURE dump
+// of local/sessionStorage (KEY NAMES and sub-keys only, NO token values) so the
+// finder can be tuned. Share that output. Deep-nested / stringified-JSON token
+// blobs are handled: the finder recurses and parses nested JSON strings.
 // ============================================================================
-// Auto-discovers the access/refresh token pair in localStorage/sessionStorage
-// and downloads it as stockedge-tokens.json.
 (() => {
-  const stores = [localStorage, sessionStorage];
-  let found = null;
+  const MAX_DEPTH = 4;
 
-  const tryVal = (raw) => {
-    if (!raw || typeof raw !== "string") return null;
-    let o;
-    try { o = JSON.parse(raw); } catch { return null; }
-    // walk one level deep for an object carrying both tokens
-    const cands = [o, ...Object.values(o).filter(v => v && typeof v === "object")];
-    for (const c of cands) {
-      const at = c.access_token || c.accessToken || c.token;
-      const rt = c.refresh_token || c.refreshToken;
-      if (at && rt) return { at, rt, exp_in: c.expires_in || c.expiresIn };
+  // Recursively hunt for an object carrying an access+refresh pair. Parses
+  // JSON-string values encountered along the way (tokens are often double-encoded).
+  const hunt = (val, depth) => {
+    if (depth > MAX_DEPTH || val == null) return null;
+    if (typeof val === "string") {
+      if (val.length > 5000 || (val[0] !== "{" && val[0] !== "[")) return null;
+      try { return hunt(JSON.parse(val), depth + 1); } catch { return null; }
+    }
+    if (typeof val !== "object") return null;
+    const at = val.access_token || val.accessToken || val.token || val.id_token;
+    const rt = val.refresh_token || val.refreshToken;
+    if (at && rt && typeof at === "string") return { at, rt, exp_in: val.expires_in || val.expiresIn };
+    for (const v of Object.values(val)) {
+      const hit = hunt(v, depth + 1);
+      if (hit) return hit;
     }
     return null;
   };
 
-  for (const store of stores) {
-    for (let i = 0; i < store.length; i++) {
-      const hit = tryVal(store.getItem(store.key(i)));
-      if (hit) { found = hit; break; }
+  let found = null;
+  for (const store of [localStorage, sessionStorage]) {
+    for (let i = 0; i < store.length && !found; i++) {
+      found = hunt(store.getItem(store.key(i)), 0);
     }
     if (found) break;
   }
 
   if (!found) {
-    console.error("❌ No access/refresh token pair found. Make sure you're logged in at web.stockedge.com, then re-run.");
+    console.error("❌ No access/refresh token pair found. Structure dump below "
+      + "(key names & sub-keys only, no values) — share it so the finder can be tuned:");
+    const describe = (store, name) => {
+      for (let i = 0; i < store.length; i++) {
+        const k = store.key(i), raw = store.getItem(k);
+        let shape;
+        try {
+          const o = JSON.parse(raw);
+          if (o && typeof o === "object") {
+            shape = "{ " + Object.keys(o).map(kk => {
+              const v = o[kk];
+              if (v && typeof v === "object") return kk + ":{" + Object.keys(v).join(",") + "}";
+              if (typeof v === "string") return kk + ":str(" + v.length + (v.split(".").length === 3 ? ",JWT" : "") + ")";
+              return kk + ":" + typeof v;
+            }).join(", ") + " }";
+          } else shape = typeof o;
+        } catch {
+          shape = "str(len=" + raw.length + (raw.split(".").length === 3 ? ",JWT-like" : "") + ")";
+        }
+        console.log(`${name}["${k}"] -> ${shape}`);
+      }
+    };
+    describe(localStorage, "local");
+    describe(sessionStorage, "session");
     return;
   }
 
