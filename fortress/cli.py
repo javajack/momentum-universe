@@ -266,8 +266,8 @@ class App:
             if not rows:
                 console.print("[yellow]No climbers match those criteria.[/yellow]")
                 return
-            t = Table("Symbol", "then→now", "Δclimb", "IPO?", "6M", "12M", "OffHi", "200",
-                      "₹Cr/day", "Tier", "Sector", box=None,
+            t = Table("Symbol", "then→now", "Δclimb", "Event", "6M", "12M", "OffHi",
+                      "MaxDD", "200", "₹Cr/day", "Tier", "Sector", box=None,
                       title=f"Rank climbers, ranks {rank_lo}-{rank_hi} [{preset}] — "
                             f"{past_asof} → {now_asof} ({len(rows)} names)")
             for r in rows:
@@ -276,8 +276,12 @@ class App:
                 r6 = f"{r.ret_6m_pct:+.0f}%" if r.ret_6m_pct is not None else "—"
                 r12 = f"{r.ret_12m_pct:+.0f}%" if r.ret_12m_pct is not None else "—"
                 offhi = f"{r.off_high_pct:.0f}%" if r.off_high_pct is not None else "—"
+                dd = f"{r.max_dd_6m:.0f}%" if r.max_dd_6m is not None else "—"
                 sma = "✓" if r.above_200sma else ("·" if r.above_200sma is not None else "—")
-                t.add_row(r.symbol, traj, delta, "IPO" if r.is_ipo else "", r6, r12, offhi, sma,
+                # Event column: IPO listing or a recent split/bonus — both mean the
+                # liquidity climb may be mechanical (float onboarding / multiply), not organic.
+                event = "IPO" if r.is_ipo else (f"⤢{r.recent_action}" if r.recent_action else "")
+                t.add_row(r.symbol, traj, delta, event, r6, r12, offhi, dd, sma,
                           f"{r.turnover / 1e7:.1f}", r.tier, (r.sector or "")[:16])
             console.print(t)
             tickers = " ".join(r.symbol for r in rows)
@@ -287,8 +291,11 @@ class App:
                           "climbing + above 200SMA + price still BASING (low 6M) + near its high "
                           "(OffHi ~0). Confirm the catalyst via StockEdge / news.[/magenta]")
             console.print("[dim]Δclimb ≥ = new entrant · 6M/12M = price return · OffHi = % below "
-                          "52w-high (0 = at high; −30 = faded from a peak) · 200 ✓ = above 200SMA "
-                          "· IPO = recent listing (float onboarding, not a markup).[/dim]")
+                          "52w-high (0 = at high; −30 = faded) · MaxDD = worst 6-month drawdown "
+                          "(deep = crash-and-recover round-trip, not a base) · 200 ✓ = above 200SMA.\n"
+                          "Event: IPO = recent listing · ⤢×N = split/bonus in the climb window — "
+                          "both mean the liquidity climb may be MECHANICAL (float onboarding / "
+                          "multiply), not organic accumulation.[/dim]")
 
     def settings(self) -> None:
         """Session settings: strategy + universe version + rank band. These drive

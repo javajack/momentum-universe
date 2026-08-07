@@ -288,6 +288,8 @@ def build_server():
         max_12m_return: Optional[float] = None,
         max_6m_return: Optional[float] = None,
         require_above_200sma: bool = False,
+        exclude_recent_actions: bool = False,
+        max_drawdown: Optional[float] = None,
     ) -> dict:
         """Rank-velocity radar for EARLY multibaggers: deep-tail stocks climbing
         the turnover rank FASTEST (fast climbers + new entrants, to depth 2000),
@@ -305,7 +307,11 @@ def build_server():
         run. To catch names STILL BASING (money ahead) set require_above_200sma=
         True + a low max_6m_return (e.g. 30) + max_12m_return (e.g. 60). Each row
         carries off_high_pct (% below the 52-week high) so a faded name (positive
-        point-to-point but down from a peak) is visible."""
+        point-to-point but down from a peak) is visible. Two "is the climb real?"
+        tells: recent_action flags a split/bonus in the climb window (mechanical
+        float multiply, not organic — set exclude_recent_actions to drop them),
+        and max_dd_6m is the worst 6-month drawdown (a deep value = a crash-and-
+        recover round-trip, not a base — set max_drawdown e.g. -35 to drop them)."""
         from datetime import date as _date
 
         from fortress import actions as A
@@ -315,7 +321,8 @@ def build_server():
                 rank_lo=rank_lo, rank_hi=rank_hi,
                 min_turnover_cr=min_turnover_cr, min_climb=min_climb,
                 exclude_ipos=exclude_ipos, max_12m_return=max_12m_return,
-                max_6m_return=max_6m_return, require_above_200sma=require_above_200sma)
+                max_6m_return=max_6m_return, require_above_200sma=require_above_200sma,
+                exclude_recent_actions=exclude_recent_actions, max_drawdown=max_drawdown)
         return {
             "as_of": _to_jsonable(now_asof),
             "compared_to": _to_jsonable(past_asof),
@@ -326,7 +333,8 @@ def build_server():
                 "new_entrant": r.new_entrant, "velocity": r.velocity,
                 "is_ipo": r.is_ipo, "ret_6m_pct": r.ret_6m_pct,
                 "ret_12m_pct": r.ret_12m_pct, "above_200sma": r.above_200sma,
-                "off_high_pct": r.off_high_pct,
+                "off_high_pct": r.off_high_pct, "max_dd_6m": r.max_dd_6m,
+                "recent_action": r.recent_action,
                 "tier": r.tier, "daily_turnover": r.turnover, "sector": r.sector,
             } for r in rows],
         }

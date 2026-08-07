@@ -126,6 +126,8 @@ class ClimberRow:
     above_200sma: Optional[bool] = None
     off_high_pct: Optional[float] = None   # % below the 52-week high (0 = at high; -30 = faded)
     price: Optional[float] = None          # latest adjusted close (for sizing)
+    recent_action: Optional[str] = None    # split/bonus in the climb window (e.g. "×4") -> mechanical liquidity, not organic
+    max_dd_6m: Optional[float] = None       # worst 6-month peak-to-trough drawdown % (deep -> crash-and-recover round-trip)
 
 
 def _climber_velocity(rank_now: int, rank_past: Optional[int], past_max: int
@@ -163,9 +165,51 @@ def _first_ranked_dates(symbols: List[str], version: str) -> Dict[str, date]:
     return {r[0]: r[1] for r in rows}
 
 
+def _recent_actions(symbols: List[str], as_of: date, window_months: int
+                    ) -> Dict[str, str]:
+    """Symbols with a SPLIT/BONUS (share-multiplying corporate action) in the
+    `window_months` before `as_of`. A rank climb that coincides with one is a
+    mechanical liquidity/float artifact — more shares + lower price lift traded
+    value/participation — not organic accumulation. Dividends are ignored (they
+    don't expand the float). Returns {symbol: label} e.g. {"INFOBEAN": "×4"}.
+    PIT: uses the committed data/actions/{symbol}.parquet event dates."""
+    if not symbols:
+        return {}
+    from nse_universe.paths import ACTIONS_DIR
+    lo = as_of - timedelta(days=int(window_months * 30.4))
+    out: Dict[str, str] = {}
+    for sym in symbols:
+        p = ACTIONS_DIR / f"{sym}.parquet"
+        if not p.exists():
+            continue
+        try:
+            df = pd.read_parquet(p, columns=["event_date", "kind", "ratio"])
+        except Exception:
+            continue
+        df = df[df["kind"] == "split"]
+        if df.empty:
+            continue
+        d = pd.to_datetime(df["event_date"], errors="coerce").dt.date
+        rec = df[(d > lo) & (d <= as_of)]
+        if len(rec):
+            ratio = float(rec.sort_values("event_date").iloc[-1]["ratio"])
+            out[sym] = f"×{ratio:g}"
+    return out
+
+
+def _max_drawdown_pct(closes) -> Optional[float]:
+    """Worst peak-to-trough decline over a close series, as a negative %.
+    -40 means the series fell 40% below a prior in-window peak (a crash-and-
+    recover round-trip shows a deep value even if it ended near its high)."""
+    if closes is None or len(closes) < 2:
+        return None
+    return float((closes / closes.cummax() - 1).min()) * 100
+
+
 def _price_context(symbols: List[str], as_of: date) -> Dict[str, dict]:
-    """6m/12m return + 200SMA status per symbol (adjusted prices), for judging
-    whether a rank-climber's PRICE is actually moving and has runway."""
+    """6m/12m return + 200SMA status + 6-month max drawdown per symbol (adjusted
+    prices), for judging whether a rank-climber's PRICE is actually moving, has
+    runway, and whether the climb is a crash-and-recover round-trip."""
     if not symbols:
         return {}
     from fortress.nse_data_loader import load_historical_bulk
@@ -181,10 +225,12 @@ def _price_context(symbols: List[str], as_of: date) -> Dict[str, dict]:
             return float(c.iloc[-1] / c.iloc[-1 - bars] - 1) * 100 if n > bars else None
         sma200 = float(c.iloc[-200:].mean()) if n >= 200 else None
         high_252 = float(c.iloc[-252:].max()) if n >= 2 else px
+        win = c.iloc[-126:]                                  # ~6-month window
+        dd6 = _max_drawdown_pct(win) if len(win) >= 20 else None
         out[sym] = {"r6": ret(126), "r12": ret(252),
                     "above200": (px > sma200) if sma200 else None,
                     "off_high": (px / high_252 - 1) * 100 if high_252 else None,
-                    "price": px}
+                    "max_dd_6m": dd6, "price": px}
     return out
 
 
@@ -194,6 +240,7 @@ def rank_velocity(
     rank_lo: int = 251, rank_hi: int = 2000, exclude_ipos: bool = False,
     ipo_window_months: int = 12, max_12m_return: Optional[float] = None,
     max_6m_return: Optional[float] = None, require_above_200sma: bool = False,
+    exclude_recent_actions: bool = False, max_drawdown: Optional[float] = None,
 ) -> Tuple[List[ClimberRow], date, date, int]:
     """Deep-tail turnover-rank climbers (fast climbers + new entrants) enriched
     with PRICE context — a radar for 'sudden interest' names OUTSIDE the popular
@@ -216,6 +263,12 @@ def rank_velocity(
     not yet a multibagger). Each row also carries off_high_pct (% below the
     52-week high) so a faded name (positive point-to-point but down from a peak)
     is visible.
+
+    Two "is the climb real?" tells guard against mechanical liquidity that isn't
+    accumulation: recent_action flags a split/bonus in the climb window (float
+    multiplied, not organic interest — set exclude_recent_actions to drop them),
+    and max_dd_6m is the worst 6-month drawdown (a deep value = a crash-and-
+    recover round-trip, not a base — set max_drawdown, e.g. -35, to drop them).
 
     Defaults: v1 (raw rank to depth 2000); min_turnover 10 ₹cr/day (tradeable —
     lower it to explore the thin deep tail). Returns (rows sorted by velocity,
@@ -245,18 +298,26 @@ def rank_velocity(
     cand.sort(key=lambda x: x.velocity, reverse=True)
     cand = cand[:max(top * 3, top)]                  # enrich a bounded superset
 
-    # Pass 2: enrich with IPO flag + price context, then apply the two filters.
+    # Pass 2: enrich with IPO flag + price context + action/drawdown, then filter.
     syms = [c.symbol for c in cand]
     first_seen = _first_ranked_dates(syms, version)
     prices = _price_context(syms, as_of)
+    actions = _recent_actions(syms, now_asof, lookback_months)   # split/bonus in the climb window
     out: List[ClimberRow] = []
     for c in cand:
         c.is_ipo = _is_recent_entrant(first_seen.get(c.symbol), now_asof, ipo_window_months)
         px = prices.get(c.symbol, {})
         c.ret_6m_pct, c.ret_12m_pct = px.get("r6"), px.get("r12")
         c.above_200sma, c.off_high_pct = px.get("above200"), px.get("off_high")
+        c.max_dd_6m = px.get("max_dd_6m")
+        c.recent_action = actions.get(c.symbol)
         c.price = px.get("price")
         if exclude_ipos and c.is_ipo:
+            continue
+        if exclude_recent_actions and c.recent_action:       # mechanical split/bonus climb
+            continue
+        if (max_drawdown is not None and c.max_dd_6m is not None
+                and c.max_dd_6m < max_drawdown):             # crash-and-recover round-trip
             continue
         if require_above_200sma and c.above_200sma is not True:   # base, not distress
             continue

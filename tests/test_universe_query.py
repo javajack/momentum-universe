@@ -5,8 +5,11 @@ import pytest
 
 from datetime import date
 
+import pandas as pd
+
 from fortress.actions.universe_query import (
-    TIER_BANDS, _climber_velocity, _is_recent_entrant, _tier,
+    TIER_BANDS, _climber_velocity, _is_recent_entrant, _max_drawdown_pct,
+    _recent_actions, _tier,
 )
 
 
@@ -62,3 +65,35 @@ def test_long_listed_is_not_ipo():
 
 def test_never_ranked_is_not_ipo():
     assert _is_recent_entrant(None, date(2026, 8, 5)) is False
+
+
+# ---------- max drawdown (crash-and-recover tell) ----------
+
+def test_max_drawdown_flat_series_is_zero():
+    assert _max_drawdown_pct(pd.Series([100, 101, 102, 103])) == pytest.approx(0.0)
+
+
+def test_max_drawdown_crash_and_recover():
+    # peak 100 -> trough 60 (-40%) -> recover to 98: worst drawdown is -40%,
+    # even though the series ends near its high (an off-high-only view would miss it)
+    dd = _max_drawdown_pct(pd.Series([100, 80, 60, 75, 98]))
+    assert dd == pytest.approx(-40.0)
+
+
+def test_max_drawdown_too_short_is_none():
+    assert _max_drawdown_pct(pd.Series([100.0])) is None
+    assert _max_drawdown_pct(None) is None
+
+
+# ---------- recent split/bonus flag (mechanical-climb tell) ----------
+
+def test_recent_action_flags_infobean_bonus():
+    # INFOBEAN did a 3:1 bonus (yfinance 'split' ratio 4.0) on 2026-02-27 — a
+    # window that includes it flags "×4"; one that ends before it does not.
+    hit = _recent_actions(["INFOBEAN"], date(2026, 8, 5), window_months=6)
+    assert hit.get("INFOBEAN") == "×4"
+    assert _recent_actions(["INFOBEAN"], date(2026, 1, 1), window_months=6) == {}
+
+
+def test_recent_action_ignores_unknown_symbol():
+    assert _recent_actions(["__NOT_A_REAL_SYMBOL__"], date(2026, 8, 5), window_months=6) == {}

@@ -75,7 +75,8 @@ Append to `~/.codex/config.toml`:
   volatility, turnover. Purely technical — diligence each pick (below).
 - rank_velocity(lookback_months=6, top_n=25, rank_lo=251, rank_hi=2000,
     min_turnover_cr=10.0, min_climb=150, exclude_ipos=True, max_12m_return=None,
-    max_6m_return=None, require_above_200sma=False)
+    max_6m_return=None, require_above_200sma=False, exclude_recent_actions=False,
+    max_drawdown=None)
   (rank_lo/rank_hi = current-rank band — a cap tier's band or a custom range
   like 1000-1500; default 251-2000 = deep tail. Each row carries off_high_pct
   = % below the 52-week high, so a faded name is visible. ACCUMULATION/early
@@ -92,7 +93,12 @@ Append to `~/.codex/config.toml`:
   not a markup); max_12m_return drops already-parabolic names (momentum
   behind). Sweet spot: climbing + above 200SMA + moving but not parabolic
   (runway ahead). Investigate the catalyst per name (news / fundamentals /
-  StockEdge). Returns rank then-vs-now, velocity, is_ipo, returns, tier, sector.
+  StockEdge). Two "is the climb REAL?" tells guard against mechanical liquidity:
+  recent_action flags a split/bonus in the climb window (float multiplied, not
+  organic — exclude_recent_actions drops them), and max_dd_6m is the worst
+  6-month drawdown (deep = crash-and-recover round-trip, not a base — max_drawdown
+  e.g. -35 drops them). Returns rank then-vs-now, velocity, is_ipo, recent_action,
+  max_dd_6m, returns, tier, sector.
 - momentum_allocation(capital, top_n?, holdings?)
   Momentum sleeve: target portfolio (weights, quantities) and buy/sell
   orders, optionally diffed against current holdings {symbol: qty}.
