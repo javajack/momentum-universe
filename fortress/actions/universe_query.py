@@ -185,7 +185,7 @@ def _price_context(symbols: List[str], as_of: date) -> Dict[str, dict]:
 def rank_velocity(
     as_of: date, version: str = "v1", *, lookback_months: int = 6,
     top: int = 25, min_turnover_cr: float = 1.0, min_climb: int = 150,
-    min_rank_now: int = 251, exclude_ipos: bool = False,
+    rank_lo: int = 251, rank_hi: int = 2000, exclude_ipos: bool = False,
     ipo_window_months: int = 12, max_12m_return: Optional[float] = None,
 ) -> Tuple[List[ClimberRow], date, date, int]:
     """Deep-tail turnover-rank climbers (fast climbers + new entrants) enriched
@@ -198,9 +198,12 @@ def rank_velocity(
     climb is float onboarding, not a markup); `max_12m_return` drops already-
     parabolic names (momentum behind), keeping the runway-ahead sweet spot.
 
-    Defaults: v1 (raw rank to depth 2000; v2's filter hides emergents),
-    min_rank_now=251 (below LARGE/MID). Returns (rows sorted by velocity, now
-    as-of, past as-of, past depth)."""
+    `rank_lo`/`rank_hi` select the CURRENT-rank band to hunt in — pass a cap
+    tier's band (LARGE 1-100 … NANO 1001-2000) or a custom range (e.g. 1000,
+    1500). Default 251-2000 = the deep tail, outside the popular cap lists.
+
+    Defaults: v1 (raw rank to depth 2000; v2's filter hides emergents).
+    Returns (rows sorted by velocity, now as-of, past as-of, past depth)."""
     u = _universe(version)
     now_snap = u.universe_at(as_of)
     past_snap = u.universe_at(as_of - timedelta(days=int(lookback_months * 30.4)))
@@ -213,7 +216,7 @@ def rank_velocity(
     cand: List[ClimberRow] = []
     for _, r in now_snap.iterrows():
         sym, rn, turn = r["symbol"], int(r["rank"]), float(r["metric_value"])
-        if rn < min_rank_now or turn < min_turnover_cr * 1e7:
+        if rn < rank_lo or rn > rank_hi or turn < min_turnover_cr * 1e7:
             continue
         rp = past_rank.get(sym)
         new, vel = _climber_velocity(rn, int(rp) if rp is not None else None, past_max)

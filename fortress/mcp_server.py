@@ -277,6 +277,8 @@ def build_server():
     def rank_velocity(
         lookback_months: int = 6,
         top_n: int = 25,
+        rank_lo: int = 251,
+        rank_hi: int = 2000,
         min_turnover_cr: float = 1.0,
         min_climb: int = 150,
         exclude_ipos: bool = True,
@@ -291,13 +293,17 @@ def build_server():
         list — confirm the catalyst per name (news/fundamentals). exclude_ipos
         (default True) drops recent listings (their climb is float onboarding,
         not a markup); max_12m_return drops already-parabolic names (momentum
-        behind). Sweet spot: climbing + above 200SMA + moving but not parabolic."""
+        behind). rank_lo/rank_hi select the CURRENT-rank band to hunt in (a cap
+        tier's band — LARGE 1-100 … NANO 1001-2000 — or a custom range like
+        1000-1500; default 251-2000 = deep tail). Sweet spot: climbing + above
+        200SMA + moving but not parabolic."""
         from datetime import date as _date
 
         from fortress import actions as A
         with _quiet_stdout():
             rows, now_asof, past_asof, past_max = A.universe_query.rank_velocity(
                 _date.today(), lookback_months=lookback_months, top=top_n,
+                rank_lo=rank_lo, rank_hi=rank_hi,
                 min_turnover_cr=min_turnover_cr, min_climb=min_climb,
                 exclude_ipos=exclude_ipos, max_12m_return=max_12m_return)
         return {

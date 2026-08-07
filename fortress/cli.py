@@ -197,6 +197,18 @@ class App:
             console.print("[dim]Deep-tail turnover-rank climbers, enriched with price momentum — "
                           "hunting EARLY multibaggers (liquidity + price moving, runway ahead).[/dim]")
             lb = int(Prompt.ask("Lookback (months)", default="6"))
+            # Which CURRENT-rank band to hunt climbers in — a cap tier or a custom range.
+            focus = Prompt.ask("Focus band",
+                               choices=["tail"] + [t.lower() for t in UQ.TIER_NAMES] + ["custom"],
+                               default="tail")
+            if focus == "tail":
+                rank_lo, rank_hi = 251, 2000            # deep tail (outside LARGE/MID)
+            elif focus == "custom":
+                rank_lo = int(Prompt.ask("Rank band — low", default="1000"))
+                rank_hi = int(Prompt.ask("Rank band — high", default="1500"))
+            else:
+                rank_lo, rank_hi = next((lo, hi) for n, lo, hi in UQ.TIER_BANDS
+                                        if n == focus.upper())
             mint = float(Prompt.ask("Min turnover (₹cr/day)", default="1"))
             top = int(Prompt.ask("Show top N", default="25"))
             excl = Prompt.ask("Exclude recent IPOs? (float onboarding ≠ markup) [Y/n]",
@@ -204,16 +216,18 @@ class App:
             capraw = Prompt.ask("Runway cap — drop names already up more than X% in 12m "
                                 "(blank = no cap)", default="").strip()
             cap = float(capraw) if capraw else None
-            with console.status("[green]scanning rank velocity + price momentum..."):
+            with console.status(f"[green]scanning rank velocity + price momentum "
+                                f"(ranks {rank_lo}-{rank_hi})..."):
                 rows, now_asof, past_asof, _pm = UQ.rank_velocity(
-                    d, lookback_months=lb, min_turnover_cr=mint, top=top,
-                    exclude_ipos=excl, max_12m_return=cap)
+                    d, lookback_months=lb, rank_lo=rank_lo, rank_hi=rank_hi,
+                    min_turnover_cr=mint, top=top, exclude_ipos=excl, max_12m_return=cap)
             if not rows:
                 console.print("[yellow]No climbers match those criteria.[/yellow]")
                 return
             t = Table("Symbol", "then→now", "Δclimb", "IPO?", "6M", "12M", "200SMA",
                       "₹Cr/day", "Tier", "Sector", box=None,
-                      title=f"Rank climbers — {past_asof} → {now_asof} ({len(rows)} names)")
+                      title=f"Rank climbers, ranks {rank_lo}-{rank_hi} — "
+                            f"{past_asof} → {now_asof} ({len(rows)} names)")
             for r in rows:
                 traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
                 delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
