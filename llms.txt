@@ -133,6 +133,8 @@ An LLM client (Claude Code / Codex) can chain this into a repeatable
      calendar, verdict — using your fundamental data sources (e.g. a StockEdge
      MCP: search the company by NAME, then pull shareholding, results/news,
      P&L/ratios; plus web search for rumors and management actions).
+     [StockEdge MCP token expired? Refresh it with the browser-console helper
+      scripts/stockedge-token-extract.js — steps are in the file header.]
   c. Because "emerging" catches low-quality micro-cap pops as well as genuine
      early growers, weight CASH-FLOW QUALITY and PLEDGE heavily — they are the
      sharpest separators. Rank picks by conviction and surface every red flag.
