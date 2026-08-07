@@ -1,5 +1,16 @@
 #!/usr/bin/env python
-"""Offline sector classifier for every NSE equity ever carried by nse-universe.
+"""[SUPERSEDED] Old heuristic sector classifier.
+
+The runtime sector source is now data/sector_map.json, the single
+independent StockEdge-canonical mapping built by tools/build_sector_map.py
++ tools/fill_sector_map.py. This heuristic builder is kept only as a
+build-time input to the fill step (its labels are translated into the
+StockEdge vocabulary for tickers StockEdge cannot match). Do NOT wire it
+back in as a runtime source — there is ONE mapping system.
+
+Original docstring follows.
+
+Offline sector classifier for every NSE equity ever carried by nse-universe.
 
 Runs ONCE (rerun quarterly / when new IPOs enter the top-500 rank window) and
 writes ``stock-sectors.json`` which the live + backtest paths read at startup.

@@ -70,3 +70,4 @@ data/raw/
 *.egg-info/
 logs/
 *.log
+data/.se_search_cache.json

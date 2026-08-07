@@ -5,9 +5,10 @@ Composes three sources:
     1. **Membership** — nse-universe, queried for `as_of` date within a
        `rank_range` (e.g. (1, 200) = nifty_200-equivalent). Point-in-time,
        survivorship-bias-free.
-    2. **Sector map** — stock-sectors.json (built offline by
-       tools/build_sectors.py). Classifies every symbol to a sector /
-       sub_sector with deterministic fallback to UNCLASSIFIED.
+    2. **Sector map** — data/sector_map.json, the single independent mapping
+       layer built from StockEdge's canonical taxonomy (tools/build_sector_map.py
+       + tools/fill_sector_map.py). Classifies every symbol to a StockEdge
+       sector (41-vocabulary) with fallback to NON_EQUITY / UNCLASSIFIED.
     3. **Static metadata** — market-metadata.json ships the benchmark
        (NIFTY 50), VIX, broad-market indices, sectoral indices (with
        Zerodha instrument tokens), and the hedge registry
@@ -107,7 +108,7 @@ class Universe:
         rank_range: Inclusive ``(lo, hi)`` rank window from nse-universe.
             ``(1, 200)`` = top-200 (nifty_200 equivalent), the default.
             ``(101, 250)`` = mid-150. Change this to re-target the strategy.
-        sectors_path: Path to stock-sectors.json (built by tools/build_sectors.py).
+        sectors_path: Path to data/sector_map.json (StockEdge canonical mapping).
         metadata_path: Path to market-metadata.json (indices + VIX + hedges).
 
     Backwards compatibility: the legacy ``filepath`` / ``filter_universes``
@@ -119,7 +120,7 @@ class Universe:
         self,
         as_of: Optional[date] = None,
         rank_range: Tuple[int, int] = (1, 200),
-        sectors_path: str = "stock-sectors.json",
+        sectors_path: str = "data/sector_map.json",
         metadata_path: str = "market-metadata.json",
         renames_path: str = "stock-renames.json",
         *,
@@ -160,7 +161,8 @@ class Universe:
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(
-                f"Sector map not found: {p}. Run tools/build_sectors.py to generate it."
+                f"Sector map not found: {p}. Build it with tools/build_sector_map.py "
+                "then tools/fill_sector_map.py."
             )
         doc = json.loads(p.read_text()).get("symbols", {})
         _SECTOR_MAP_CACHE[path] = doc

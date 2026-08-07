@@ -148,7 +148,7 @@ class PathsConfig(BaseModel):
 
     universe_file: str = Field(default="stock-universe.json")  # legacy, unused after Phase 4
     data_cache: str = Field(default=".cache")
-    sectors_file: str = Field(default="stock-sectors.json")
+    sectors_file: str = Field(default="data/sector_map.json")
     market_metadata_file: str = Field(default="market-metadata.json")
 
 

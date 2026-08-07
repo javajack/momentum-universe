@@ -207,7 +207,7 @@ def _synthetic_sectoral_index(
 
 def _inject_synthetic_sectoral_indices(
     data: Dict[str, pd.DataFrame],
-    sectors_path: str = "stock-sectors.json",
+    sectors_path: str = "data/sector_map.json",
     metadata_path: str = "market-metadata.json",
 ) -> None:
     """Compute synthetic NIFTY sectoral indices (NIFTY BANK / IT / PHARMA /

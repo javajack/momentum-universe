@@ -48,7 +48,7 @@ def _universe(version: str):
 
 def _sectors() -> dict:
     try:
-        return json.load(open("stock-sectors.json"))["symbols"]
+        return json.load(open("data/sector_map.json"))["symbols"]
     except Exception:
         return {}
 
