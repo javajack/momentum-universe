@@ -64,12 +64,18 @@ Append to `~/.codex/config.toml`:
   return capped so already-parabolic names are excluded). Returns each
   stock's rank trajectory, 3/6/12m returns, proximity, acceleration,
   volatility, turnover. Purely technical — diligence each pick (below).
-- rank_velocity(lookback_months=6, top_n=25, min_turnover_cr=1.0, min_climb=150)
-  RESEARCH radar (not a buy list): stocks climbing the turnover rank FASTEST
-  over the lookback — fast climbers AND new entrants — across the full ranked
-  depth (to rank 2000). Surfaces "sudden interest" names, often OUTSIDE the
-  popular cap lists, for you to investigate the catalyst per name (news /
-  fundamentals / StockEdge). Returns rank then-vs-now, velocity, tier, sector.
+- rank_velocity(lookback_months=6, top_n=25, min_turnover_cr=1.0, min_climb=150,
+    exclude_ipos=True, max_12m_return=None)
+  RESEARCH radar for EARLY MULTIBAGGERS (not a buy list): deep-tail stocks
+  climbing the turnover rank FASTEST (fast climbers + new entrants, to rank
+  2000), enriched with PRICE momentum. Turnover-rank climb is a LIQUIDITY
+  signal (turnover = price x volume), so each row also carries 6m/12m price
+  return + 200SMA — so you can tell a genuine price markup from a liquidity
+  spike with flat price. exclude_ipos drops recent listings (float onboarding,
+  not a markup); max_12m_return drops already-parabolic names (momentum
+  behind). Sweet spot: climbing + above 200SMA + moving but not parabolic
+  (runway ahead). Investigate the catalyst per name (news / fundamentals /
+  StockEdge). Returns rank then-vs-now, velocity, is_ipo, returns, tier, sector.
 - momentum_allocation(capital, top_n?, holdings?)
   Momentum sleeve: target portfolio (weights, quantities) and buy/sell
   orders, optionally diffed against current holdings {symbol: qty}.

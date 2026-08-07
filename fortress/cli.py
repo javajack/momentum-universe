@@ -194,32 +194,41 @@ class App:
             console.print(self._TIER_LEGEND)
 
         elif kind == "climbers":
-            console.print("[dim]Stocks climbing the turnover rank FASTEST (fast climbers + new "
-                          "entrants) across the full depth — a radar for sudden interest.[/dim]")
+            console.print("[dim]Deep-tail turnover-rank climbers, enriched with price momentum — "
+                          "hunting EARLY multibaggers (liquidity + price moving, runway ahead).[/dim]")
             lb = int(Prompt.ask("Lookback (months)", default="6"))
             mint = float(Prompt.ask("Min turnover (₹cr/day)", default="1"))
             top = int(Prompt.ask("Show top N", default="25"))
-            with console.status("[green]scanning rank velocity across the deep tail..."):
-                # radar uses v1 (raw turnover rank to depth 2000) — see the action
+            excl = Prompt.ask("Exclude recent IPOs? (float onboarding ≠ markup) [Y/n]",
+                              default="y").lower() == "y"
+            capraw = Prompt.ask("Runway cap — drop names already up more than X% in 12m "
+                                "(blank = no cap)", default="").strip()
+            cap = float(capraw) if capraw else None
+            with console.status("[green]scanning rank velocity + price momentum..."):
                 rows, now_asof, past_asof, _pm = UQ.rank_velocity(
-                    d, lookback_months=lb, min_turnover_cr=mint, top=top)
+                    d, lookback_months=lb, min_turnover_cr=mint, top=top,
+                    exclude_ipos=excl, max_12m_return=cap)
             if not rows:
-                console.print("[yellow]No fast climbers / new entrants match those criteria.[/yellow]")
+                console.print("[yellow]No climbers match those criteria.[/yellow]")
                 return
-            t = Table("Symbol", "then→now", "Δclimb", "₹Cr/day", "Tier", "Sector",
-                      box=None, title=f"Rank climbers — {past_asof} → {now_asof} ({len(rows)} names)")
+            t = Table("Symbol", "then→now", "Δclimb", "IPO?", "6M", "12M", "200SMA",
+                      "₹Cr/day", "Tier", "Sector", box=None,
+                      title=f"Rank climbers — {past_asof} → {now_asof} ({len(rows)} names)")
             for r in rows:
                 traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
                 delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
-                t.add_row(r.symbol, traj, delta, f"{r.turnover / 1e7:.1f}", r.tier,
-                          (r.sector or "")[:18])
+                r6 = f"{r.ret_6m_pct:+.0f}%" if r.ret_6m_pct is not None else "—"
+                r12 = f"{r.ret_12m_pct:+.0f}%" if r.ret_12m_pct is not None else "—"
+                sma = "✓" if r.above_200sma else ("·" if r.above_200sma is not None else "—")
+                t.add_row(r.symbol, traj, delta, "IPO" if r.is_ipo else "", r6, r12, sma,
+                          f"{r.turnover / 1e7:.1f}", r.tier, (r.sector or "")[:16])
             console.print(t)
-            console.print("[magenta]⚑ Research watchlist — NOT a buy list. Each row is a "
-                          "'why is this suddenly liquid?' question: hand it to StockEdge / news / "
-                          "fundamentals to find the catalyst.[/magenta]")
-            console.print("[dim]then→now = rank at start vs now (lower = more liquid) · "
-                          "Δclimb = ranks improved (≥ = new entrant, climbed from beyond the "
-                          "old depth) · Tier = current turnover band.[/dim]")
+            console.print("[magenta]⚑ Research watchlist — NOT a buy list. Sweet spot for a "
+                          "many-bagger: rank climbing + price above 200SMA + moving but NOT yet "
+                          "parabolic (runway ahead). Confirm the catalyst via StockEdge / news.[/magenta]")
+            console.print("[dim]Δclimb ≥ = new entrant (from beyond old depth) · 6M/12M = price "
+                          "return (is it moving?) · 200SMA ✓ = uptrend · IPO = recent listing "
+                          "(climb is float onboarding, not a markup).[/dim]")
 
     def settings(self) -> None:
         """Session settings: strategy + universe version + rank band. These drive

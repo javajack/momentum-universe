@@ -252,7 +252,7 @@ deliberately does not model) on top:
 | `swing_allocation_plan` | capital → 3+2 slot split: ticker, qty, ₹ allocation, stop, rotation days |
 | `momentum_scan` | top-N ranked stocks under the active strategy |
 | `emerging_scan` | stocks EARLY in a move (rank climbing + early momentum) — the pre-run complement |
-| `rank_velocity` | rank-climb radar (fast climbers + new entrants) to depth 2000 — research watchlist for "sudden interest" names |
+| `rank_velocity` | deep-tail rank-climb radar (to depth 2000) + price momentum (6m/12m, 200SMA) — early-multibagger research watchlist; `exclude_ipos` + `max_12m_return` runway filters |
 | `fresh_allocation` | enter ₹ (momentum + swing) → combined breakup with qty, overlap + ADV flags, no holdings |
 | `momentum_allocation` | capital (+ holdings) → target weights, quantities, orders |
 | `market_state` | current regime, VIX, stress, equity/gold/cash split |

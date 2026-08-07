@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import pytest
 
-from fortress.actions.universe_query import TIER_BANDS, _climber_velocity, _tier
+from datetime import date
+
+from fortress.actions.universe_query import (
+    TIER_BANDS, _climber_velocity, _is_recent_entrant, _tier,
+)
 
 
 @pytest.mark.parametrize("rank,tier", [
@@ -43,3 +47,18 @@ def test_new_entrant_implied_minimum_climb():
     assert _climber_velocity(500, None, past_max=2000) == (True, 1501)
     # a new entrant deep in the tail implies a smaller climb
     assert _climber_velocity(1900, None, past_max=2000) == (True, 101)
+
+
+# ---------- IPO (recent-entrant) detection ----------
+
+def test_recent_entrant_is_ipo():
+    # first ranked 3 months before as_of, window 12m -> recent listing
+    assert _is_recent_entrant(date(2026, 5, 1), date(2026, 8, 5), window_months=12) is True
+
+
+def test_long_listed_is_not_ipo():
+    assert _is_recent_entrant(date(2019, 1, 1), date(2026, 8, 5), window_months=12) is False
+
+
+def test_never_ranked_is_not_ipo():
+    assert _is_recent_entrant(None, date(2026, 8, 5)) is False

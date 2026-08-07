@@ -120,6 +120,10 @@ class ClimberRow:
     turnover: float
     tier: str
     sector: str
+    is_ipo: bool = False       # first ranked within the IPO window (float onboarding)
+    ret_6m_pct: Optional[float] = None
+    ret_12m_pct: Optional[float] = None
+    above_200sma: Optional[bool] = None
 
 
 def _climber_velocity(rank_now: int, rank_past: Optional[int], past_max: int
@@ -131,44 +135,114 @@ def _climber_velocity(rank_now: int, rank_past: Optional[int], past_max: int
     return False, rank_past - rank_now
 
 
+def _is_recent_entrant(first_ranked: Optional[date], as_of: date,
+                       window_months: int = 12) -> bool:
+    """True if the symbol first appeared in the ranked universe within
+    `window_months` of `as_of` — a proxy for a recent IPO / brand-new listing
+    (its turnover-rank climb is float onboarding, not a price markup)."""
+    if first_ranked is None:
+        return False
+    return first_ranked >= as_of - timedelta(days=int(window_months * 30.4))
+
+
+def _first_ranked_dates(symbols: List[str], version: str) -> Dict[str, date]:
+    """Earliest as_of_date each symbol appears in the ranked universe (for IPO
+    detection). One query over the deepest table (universe_rank = v1)."""
+    if not symbols:
+        return {}
+    from nse_universe.core.db import db
+    table = "universe_v2" if version == "v2" else "universe_rank"
+    ph = ",".join("?" * len(symbols))
+    with db(read_only=True) as con:
+        rows = con.execute(
+            f"SELECT symbol, MIN(as_of_date) FROM {table} WHERE symbol IN ({ph}) GROUP BY symbol",
+            symbols,
+        ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+def _price_context(symbols: List[str], as_of: date) -> Dict[str, dict]:
+    """6m/12m return + 200SMA status per symbol (adjusted prices), for judging
+    whether a rank-climber's PRICE is actually moving and has runway."""
+    if not symbols:
+        return {}
+    from fortress.nse_data_loader import load_historical_bulk
+    data = load_historical_bulk(start=as_of - timedelta(days=460), end=as_of, symbols=symbols)
+    out: Dict[str, dict] = {}
+    for sym, df in data.items():
+        if df is None or len(df) < 130:
+            continue
+        c = df["close"]
+        n = len(c)
+        def ret(bars):
+            return float(c.iloc[-1] / c.iloc[-1 - bars] - 1) * 100 if n > bars else None
+        sma200 = float(c.iloc[-200:].mean()) if n >= 200 else None
+        out[sym] = {"r6": ret(126), "r12": ret(252),
+                    "above200": (float(c.iloc[-1]) > sma200) if sma200 else None}
+    return out
+
+
 def rank_velocity(
     as_of: date, version: str = "v1", *, lookback_months: int = 6,
     top: int = 25, min_turnover_cr: float = 1.0, min_climb: int = 150,
-    min_rank_now: int = 251,
+    min_rank_now: int = 251, exclude_ipos: bool = False,
+    ipo_window_months: int = 12, max_12m_return: Optional[float] = None,
 ) -> Tuple[List[ClimberRow], date, date, int]:
-    """Stocks climbing the turnover rank FASTEST over `lookback_months` — fast
-    climbers AND new entrants — from the DEEP TAIL. A research radar for 'sudden
-    interest' names OUTSIDE the popular cap lists, NOT a buy list.
+    """Deep-tail turnover-rank climbers (fast climbers + new entrants) enriched
+    with PRICE context — a radar for 'sudden interest' names OUTSIDE the popular
+    cap lists that may be EARLY multibaggers. Research, NOT a buy list.
 
-    Defaults chosen for the intent: version 'v1' (raw turnover rank to depth
-    2000 — v2's quality filter would hide emerging names and shallow the past
-    depth); `min_rank_now=251` keeps only names currently BELOW LARGE/MID (i.e.
-    still under the radar). Returns (rows sorted by velocity, now as-of, past
-    as-of, past ranking depth)."""
+    Turnover-rank climb is a LIQUIDITY signal (turnover = price x volume), so
+    each row also carries 6m/12m price return + 200SMA to show whether price is
+    actually moving and has runway. `exclude_ipos` drops recent listings (their
+    climb is float onboarding, not a markup); `max_12m_return` drops already-
+    parabolic names (momentum behind), keeping the runway-ahead sweet spot.
+
+    Defaults: v1 (raw rank to depth 2000; v2's filter hides emergents),
+    min_rank_now=251 (below LARGE/MID). Returns (rows sorted by velocity, now
+    as-of, past as-of, past depth)."""
     u = _universe(version)
     now_snap = u.universe_at(as_of)
     past_snap = u.universe_at(as_of - timedelta(days=int(lookback_months * 30.4)))
     past_rank = dict(zip(past_snap["symbol"], past_snap["rank"]))
     past_max = int(past_snap["rank"].max()) if len(past_snap) else 0
+    now_asof, past_asof = _asof(now_snap, as_of), _asof(past_snap, as_of)
     sectors = _sectors()
 
-    rows: List[ClimberRow] = []
+    # Pass 1: rank/turnover/climb filters -> candidates (bounded before enrichment).
+    cand: List[ClimberRow] = []
     for _, r in now_snap.iterrows():
         sym, rn, turn = r["symbol"], int(r["rank"]), float(r["metric_value"])
-        if rn < min_rank_now:                        # still under the radar (not LARGE/MID)
-            continue
-        if turn < min_turnover_cr * 1e7:            # researchable-liquidity floor
+        if rn < min_rank_now or turn < min_turnover_cr * 1e7:
             continue
         rp = past_rank.get(sym)
         new, vel = _climber_velocity(rn, int(rp) if rp is not None else None, past_max)
-        if vel < min_climb:                          # not climbing fast enough
+        if vel < min_climb:
             continue
-        rows.append(ClimberRow(symbol=sym, rank_now=rn,
+        cand.append(ClimberRow(symbol=sym, rank_now=rn,
                                rank_past=(int(rp) if rp is not None else None),
                                new_entrant=new, velocity=vel, turnover=turn,
                                tier=_tier(rn), sector=_sec(sectors, sym)))
-    rows.sort(key=lambda x: x.velocity, reverse=True)
-    return rows[:top], _asof(now_snap, as_of), _asof(past_snap, as_of), past_max
+    cand.sort(key=lambda x: x.velocity, reverse=True)
+    cand = cand[:max(top * 3, top)]                  # enrich a bounded superset
+
+    # Pass 2: enrich with IPO flag + price context, then apply the two filters.
+    syms = [c.symbol for c in cand]
+    first_seen = _first_ranked_dates(syms, version)
+    prices = _price_context(syms, as_of)
+    out: List[ClimberRow] = []
+    for c in cand:
+        c.is_ipo = _is_recent_entrant(first_seen.get(c.symbol), now_asof, ipo_window_months)
+        px = prices.get(c.symbol, {})
+        c.ret_6m_pct, c.ret_12m_pct = px.get("r6"), px.get("r12")
+        c.above_200sma = px.get("above200")
+        if exclude_ipos and c.is_ipo:
+            continue
+        if (max_12m_return is not None and c.ret_12m_pct is not None
+                and c.ret_12m_pct > max_12m_return):    # already parabolic -> momentum behind
+            continue
+        out.append(c)
+    return out[:top], now_asof, past_asof, past_max
 
 
 def list_indices(version: str = "v2") -> List[str]:

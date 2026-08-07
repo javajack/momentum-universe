@@ -279,29 +279,37 @@ def build_server():
         top_n: int = 25,
         min_turnover_cr: float = 1.0,
         min_climb: int = 150,
+        exclude_ipos: bool = True,
+        max_12m_return: Optional[float] = None,
     ) -> dict:
-        """Rank-velocity radar: stocks climbing the turnover rank FASTEST over the
-        lookback (fast climbers AND new entrants) across the full ranked depth
-        (to rank 2000). Surfaces 'sudden interest' names — often outside the
-        popular cap lists — as RESEARCH candidates, not a buy list. For each:
-        symbol, rank then vs now, velocity (rank improvement; a minimum for new
-        entrants), current tier, turnover, sector. Intended use: pull these,
-        then investigate the catalyst per name via fundamentals / news."""
+        """Rank-velocity radar for EARLY multibaggers: deep-tail stocks climbing
+        the turnover rank FASTEST (fast climbers + new entrants, to depth 2000),
+        enriched with PRICE momentum. Turnover-rank climb is a liquidity signal
+        (turnover = price x volume), so each row also carries 6m/12m price return
+        + 200SMA to show whether price is actually moving and has runway. Names
+        are usually OUTSIDE the popular cap lists. RESEARCH candidates, not a buy
+        list — confirm the catalyst per name (news/fundamentals). exclude_ipos
+        (default True) drops recent listings (their climb is float onboarding,
+        not a markup); max_12m_return drops already-parabolic names (momentum
+        behind). Sweet spot: climbing + above 200SMA + moving but not parabolic."""
         from datetime import date as _date
 
         from fortress import actions as A
         with _quiet_stdout():
             rows, now_asof, past_asof, past_max = A.universe_query.rank_velocity(
                 _date.today(), lookback_months=lookback_months, top=top_n,
-                min_turnover_cr=min_turnover_cr, min_climb=min_climb)
+                min_turnover_cr=min_turnover_cr, min_climb=min_climb,
+                exclude_ipos=exclude_ipos, max_12m_return=max_12m_return)
         return {
             "as_of": _to_jsonable(now_asof),
             "compared_to": _to_jsonable(past_asof),
             "past_depth": past_max,
-            "note": "research watchlist (sudden liquidity), not a buy list",
+            "note": "research watchlist for early multibaggers, not a buy list",
             "climbers": [{
                 "symbol": r.symbol, "rank_now": r.rank_now, "rank_past": r.rank_past,
                 "new_entrant": r.new_entrant, "velocity": r.velocity,
+                "is_ipo": r.is_ipo, "ret_6m_pct": r.ret_6m_pct,
+                "ret_12m_pct": r.ret_12m_pct, "above_200sma": r.above_200sma,
                 "tier": r.tier, "daily_turnover": r.turnover, "sector": r.sector,
             } for r in rows],
         }
