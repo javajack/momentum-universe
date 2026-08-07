@@ -20,6 +20,7 @@ from datetime import date, timedelta
 from nse_universe.core.db import db
 from nse_universe.core.export import export_all
 from nse_universe.core.state import mark_rank_computed
+from nse_universe.rank.deny import is_non_equity
 
 log = logging.getLogger(__name__)
 
@@ -46,12 +47,33 @@ def _first_trading_days(con) -> list[date]:
     return [r[0] for r in rows]
 
 
+def _ensure_deny_temp(con) -> None:
+    """Materialise the non-equity deny-list into a per-connection TEMP table
+    `deny_symbols`, so the rank SQL can anti-join it. Built once per connection
+    from the single source of truth (`deny.is_non_equity`): NSE lists ETFs / gold
+    / silver / liquid / index funds under SERIES='EQ' (same as equities), so they
+    reach bhav_daily and must be excluded from the *individual-equity* universe.
+    (REITs/InvITs trade in series RR/IV and never enter bhav_daily to begin with.)"""
+    try:
+        con.execute("SELECT 1 FROM deny_symbols LIMIT 1")
+        return                                    # already built for this connection
+    except Exception:
+        pass
+    syms = [r[0] for r in con.execute("SELECT DISTINCT symbol FROM bhav_daily").fetchall()]
+    denied = [(s,) for s in syms if is_non_equity(s)]
+    con.execute("CREATE TEMP TABLE deny_symbols(symbol VARCHAR)")
+    if denied:
+        con.executemany("INSERT INTO deny_symbols VALUES (?)", denied)
+
+
 def _compute_rank_for(con, as_of_date: date, top_k: int) -> int:
     """Compute + upsert universe_rank for one as_of_date. Returns rows written."""
     window_start = as_of_date - timedelta(days=260)  # generous — ≥126 trading days fit inside
+    _ensure_deny_temp(con)
     con.execute("DELETE FROM universe_rank WHERE as_of_date = ?", [as_of_date])
     # One SQL: pick the last 126 trading days per symbol strictly before as_of_date,
-    # compute median turnover, rank desc, keep top K.
+    # compute median turnover, rank desc, keep top K. Non-equity instruments (ETFs
+    # / funds) are anti-joined out so the ranked universe is individual equities only.
     res = con.execute(
         """
         WITH window_rows AS (
@@ -61,6 +83,7 @@ def _compute_rank_for(con, as_of_date: date, top_k: int) -> int:
              WHERE date < ?
                AND date >= ?
                AND turnover IS NOT NULL
+               AND symbol NOT IN (SELECT symbol FROM deny_symbols)
         ),
         last126 AS (
             SELECT symbol, turnover FROM window_rows WHERE rn <= ?
