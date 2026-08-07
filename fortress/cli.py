@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+from rich import box
 from rich.console import Console
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
@@ -369,99 +371,143 @@ class App:
                       "movers — weigh cash-flow quality & pledge heavily in diligence.[/dim]")
 
     def fresh_allocation(self) -> None:
-        console.print("[dim]Stateless plan — enter fresh amounts to deploy (no existing "
-                      "holdings needed). Type 0 for a sleeve to skip it.[/dim]")
-        mom = float(Prompt.ask("Momentum ₹ to deploy", default="1000000"))
+        # ---- inputs: one numbered block per sleeve (matches the output order) ----
+        console.rule("[bold]Fresh Allocation — enter amounts[/bold]")
+        console.print("[dim]Stateless: type the rupees to deploy per sleeve (0 skips it). "
+                      "No existing holdings needed.[/dim]\n")
+
+        console.print("[bold green]① Momentum[/bold green]  [dim]core trend sleeve · active "
+                      "strategy[/dim]")
+        mom = float(Prompt.ask("   ₹ to deploy", default="1000000"))
         mom_n = None
         if mom > 0:
-            mom_n = int(Prompt.ask("  → how many momentum stocks to shortlist",
+            mom_n = int(Prompt.ask("   stocks to shortlist",
                                    default=str(self.config.position_sizing.target_positions)))
-        sw = float(Prompt.ask("Swing ₹ to deploy", default="500000"))
+
+        console.print("\n[bold cyan]② Swing[/bold cyan]  [dim]3+2 partition · breakouts + RSI "
+                      "pullbacks[/dim]")
+        sw = float(Prompt.ask("   ₹ to deploy", default="500000"))
         hb, rs = 3, 2
         if sw > 0:
-            hb = int(Prompt.ask("  → swing: high-base (breakout) slots", default="3"))
-            rs = int(Prompt.ask("  → swing: RSI-pullback slots", default="2"))
-        console.print("[dim]Climbers = SATELLITE sleeve: accumulation rank-climbers (1-500 band, "
-                      "still basing), ~5 concentrated names, QUARTERLY rotation. Higher-risk "
-                      "alpha (validated ~+20%/yr vs the band) — size small.[/dim]")
-        cl = float(Prompt.ask("Climbers ₹ to deploy (satellite)", default="0"))
+            hb = int(Prompt.ask("   high-base (breakout) slots", default="3"))
+            rs = int(Prompt.ask("   RSI-pullback slots", default="2"))
+
+        console.print("\n[bold magenta]③ Climbers[/bold magenta] [dim](satellite) · accumulation "
+                      "rank-climbers, 1-500 band, ~5 names, quarterly.\n   Higher-risk validated "
+                      "alpha (~+20%/yr vs the band) — size small.[/dim]")
+        cl = float(Prompt.ask("   ₹ to deploy", default="0"))
         cl_n = 8
         if cl > 0:
-            cl_n = int(Prompt.ask("  → max climbers to hold (cap; ~5 usually qualify)", default="8"))
+            cl_n = int(Prompt.ask("   max names to hold (~5 usually qualify)", default="8"))
+
         if mom <= 0 and sw <= 0 and cl <= 0:
-            console.print("[yellow]Nothing to allocate — all amounts were 0.[/yellow]")
+            console.print("\n[yellow]Nothing to allocate — all amounts were 0.[/yellow]")
             return
 
+        # ---- build: scanner/ranking detail streams under its own banner ----
+        console.print()
+        console.rule("[dim]scanning & ranking (sleeve detail below)[/dim]")
         with console.status("[green]building fresh allocation..."):
             plan = A.fresh_allocation(self.config, momentum_capital=mom, swing_capital=sw,
                                       climbers_capital=cl, momentum_top_n=mom_n,
                                       hb_slots=hb, rsi_slots=rs, climbers_top_n=cl_n)
 
-        style = {"defensive": "red", "caution": "yellow"}.get(plan.regime, "green")
+        # ---- the plan: strong banner, header card, then one aligned card per sleeve ----
+        style = {"defensive": "red", "caution": "yellow"}.get(plan.regime, "cyan")
+        console.print()
+        console.rule(f"[bold {style}]FRESH ALLOCATION PLAN[/bold {style}]")
+
+        total = plan.momentum_capital + plan.swing_capital + plan.climbers_capital
+        split = "   ".join(p for p in (
+            f"[green]momentum {_inr(plan.momentum_capital)}[/green]" if mom > 0 else "",
+            f"[cyan]swing {_inr(plan.swing_capital)}[/cyan]" if sw > 0 else "",
+            f"[magenta]climbers {_inr(plan.climbers_capital)}[/magenta]" if cl > 0 else "",
+        ) if p)
         console.print(Panel(
-            f"as of [bold]{plan.as_of}[/bold]    regime [bold]{plan.regime.upper()}[/bold]    "
-            f"total [bold]{_inr(plan.momentum_capital + plan.swing_capital + plan.climbers_capital)}[/bold]\n"
+            f"deploying [bold]{_inr(total)}[/bold]   ·   as of [bold]{plan.as_of}[/bold]"
+            f"   ·   regime [bold]{plan.regime.upper()}[/bold]\n"
+            f"{split}\n"
             f"[dim]{plan.regime_hint}[/dim]",
-            title="Fresh allocation plan", style=style,
-        ))
+            box=box.ROUNDED, border_style=style, padding=(0, 1)))
 
         if plan.momentum_rows:
             deployed = sum(r.value for r in plan.momentum_rows)
-            t = Table("Ticker", "Wt", "Qty", "Value ₹", "ADV%", "flag", box=None,
-                      title=f"Momentum — {_inr(plan.momentum_capital)} across "
-                            f"{len(plan.momentum_rows)} stocks")
+            t = self._sleeve_table(
+                f"[green]Momentum[/green]  ·  {_inr(plan.momentum_capital)}  ·  "
+                f"{_count(len(plan.momentum_rows), 'stock')}",
+                [("Ticker", "left"), ("Wt", "right"), ("Qty", "right"),
+                 ("Value ₹", "right"), ("ADV%", "right"), ("", "center")])
             for r in plan.momentum_rows:
-                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "—"
-                t.add_row(r.symbol, r.detail, f"{r.quantity:,}", f"{r.value:,.0f}", advp,
-                          self._flag(r))
-            console.print(t)
+                t.add_row(r.symbol, r.detail, f"{r.quantity:,}", f"{r.value:,.0f}",
+                          _advp(r), self._flag(r))
+            console.print(Padding(t, (0, 0, 0, 2)))
             if plan.defensive_rows:
                 buf = "   ".join(f"{r.symbol} {r.detail} ({_inr(r.value)})"
                                  for r in plan.defensive_rows)
-                console.print(f"  [dim]defensive buffer (regime overlay): {buf} — buy these "
-                              f"ETFs separately for the gold/cash cushion[/dim]")
-            console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
+                console.print(f"    [dim]+ defensive buffer (regime overlay): {buf}\n"
+                              f"      buy these ETFs separately for the gold/cash cushion[/dim]")
+            console.print(f"    [dim]deployed {_inr(deployed)}  ·  cash residue "
                           f"{_inr(plan.momentum_cash)}[/dim]")
 
         if plan.swing_rows:
             deployed = sum(r.value for r in plan.swing_rows)
-            t = Table("Strategy", "Ticker", "Qty", "Value ₹", "Stop ₹", "Rotate≤", "ADV%", "flag",
-                      box=None, title=f"Swing — {_inr(plan.swing_capital)} (high-base×{hb} + rsi2×{rs})")
+            t = self._sleeve_table(
+                f"[cyan]Swing[/cyan]  ·  {_inr(plan.swing_capital)}  ·  "
+                f"high-base×{hb} + rsi2×{rs}",
+                [("Strategy", "left"), ("Ticker", "left"), ("Qty", "right"),
+                 ("Value ₹", "right"), ("Stop ₹", "right"), ("Rotate≤", "right"),
+                 ("ADV%", "right"), ("", "center")])
             for r in plan.swing_rows:
-                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "—"
                 t.add_row(r.detail, r.symbol, f"{r.quantity:,}", f"{r.value:,.0f}",
                           f"{r.stop:,.1f}" if r.stop else "—",
-                          f"{r.rotation_days}d" if r.rotation_days else "—", advp, self._flag(r))
-            console.print(t)
-            console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
+                          f"{r.rotation_days}d" if r.rotation_days else "—",
+                          _advp(r), self._flag(r))
+            console.print(Padding(t, (0, 0, 0, 2)))
+            console.print(f"    [dim]deployed {_inr(deployed)}  ·  cash residue "
                           f"{_inr(plan.swing_cash)}[/dim]")
 
         if plan.climbers_rows:
             deployed = sum(r.value for r in plan.climbers_rows)
-            t = Table("Ticker", "rank then→now", "Qty", "Value ₹", "Rotate≤", "ADV%", "flag",
-                      box=None, title=f"Climbers (satellite) — {_inr(plan.climbers_capital)} across "
-                                      f"{len(plan.climbers_rows)} names")
+            t = self._sleeve_table(
+                f"[magenta]Climbers[/magenta] (satellite)  ·  {_inr(plan.climbers_capital)}  ·  "
+                f"{_count(len(plan.climbers_rows), 'name')}",
+                [("Ticker", "left"), ("Rank then→now", "left"), ("Qty", "right"),
+                 ("Value ₹", "right"), ("Rotate≤", "right"), ("ADV%", "right"), ("", "center")])
             for r in plan.climbers_rows:
-                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "—"
                 t.add_row(r.symbol, r.detail, f"{r.quantity:,}", f"{r.value:,.0f}",
-                          f"{r.rotation_days}d" if r.rotation_days else "—", advp, self._flag(r))
-            console.print(t)
-            console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
-                          f"{_inr(plan.climbers_cash)} · quarterly rotation · higher-risk alpha, "
+                          f"{r.rotation_days}d" if r.rotation_days else "—",
+                          _advp(r), self._flag(r))
+            console.print(Padding(t, (0, 0, 0, 2)))
+            console.print(f"    [dim]deployed {_inr(deployed)}  ·  cash residue "
+                          f"{_inr(plan.climbers_cash)}  ·  quarterly rotation · "
                           f"diligence the catalyst per name[/dim]")
         elif plan.climbers_capital > 0:
-            console.print(f"  [yellow]Climbers: no accumulation candidates qualify right now "
+            console.print(f"    [yellow]Climbers: no accumulation candidates qualify right now "
                           f"(rare — the filter is strict). Hold the {_inr(plan.climbers_capital)} "
                           f"as cash or add to another sleeve.[/yellow]")
 
         if plan.overlaps:
+            console.print()
             console.print(Panel(
-                f"[bold]↔ {', '.join(plan.overlaps)}[/bold] appears in BOTH sleeves — you'd buy "
-                "it twice. Consider keeping it in one sleeve only.", style="yellow"))
-        console.print("[dim]Legend: ↔ = in both sleeves · ! = order is a large % of the stock's "
-                      "daily volume (harder to fill). Quantities are approximate.\n"
-                      "Next: diligence each name (options 7/8 give context; pair with the "
-                      "StockEdge MCP) before placing orders. Re-run after any swing exit.[/dim]")
+                f"[bold]↔ {', '.join(plan.overlaps)}[/bold] appears in more than one sleeve — "
+                "you'd buy it twice. Keep it in a single sleeve.",
+                box=box.ROUNDED, border_style="yellow", padding=(0, 1)))
+
+        console.print()
+        console.print("[dim]Legend  ↔ same name in >1 sleeve  ·  ! order > 10% of the stock's "
+                      "20-day traded value (harder to fill)  ·  · clean.\n"
+                      "Quantities are approximate. Next: diligence each name (options 7/8 for "
+                      "context, pair with the StockEdge MCP) before placing orders; re-run after "
+                      "any swing exit.[/dim]")
+
+    @staticmethod
+    def _sleeve_table(title: str, columns) -> Table:
+        """A left-titled, header-underlined table with per-column justification."""
+        t = Table(box=box.SIMPLE_HEAD, title=title, title_justify="left",
+                  title_style="bold", header_style="dim", pad_edge=False, padding=(0, 1))
+        for header, justify in columns:
+            t.add_column(header, justify=justify)
+        return t
 
     @staticmethod
     def _flag(r) -> str:
@@ -506,6 +552,22 @@ def _inr(x: float) -> str:
     if abs(x) >= 1e5:
         return f"₹{x / 1e5:.2f}L"
     return f"₹{x:,.0f}"
+
+
+def _advp(r) -> str:
+    """Order size as a % of the stock's 20-day traded value (fill footprint).
+    Sub-1% orders read '<1%' rather than a misleading '0%'."""
+    if r.adv_pct is None:
+        return "—"
+    p = r.adv_pct * 100
+    if p < 1:
+        return "<1%"
+    return f"{p:.0f}%"
+
+
+def _count(n: int, word: str) -> str:
+    """'1 name' / '3 names' — pluralize the noun with the count."""
+    return f"{n} {word}" + ("" if n == 1 else "s")
 
 
 def main() -> None:
