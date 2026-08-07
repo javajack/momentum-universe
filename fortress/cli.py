@@ -60,12 +60,51 @@ class App:
 
     # ---- handlers (thin: gather input -> action -> render) -----------------
     def universe_update(self) -> None:
-        fetch = Prompt.ask("Fetch latest from NSE? (needs network) [y/N]", default="n").lower() == "y"
-        with console.status("[green]updating universe..."):
-            res = A.update_universe(fetch=fetch)
-        console.print(f"[green]Universe rebuilt: {res.symbols} symbols, {res.rows:,} rows.[/green]")
-        if res.fetched:
-            console.print(f"[dim]steps: {res.steps}[/dim]")
+        # Preview the pending window BEFORE the (possibly slow) network call.
+        try:
+            start, end, ndays = A.universe_update.pending_window(self.config.universe.version)
+        except Exception:
+            start, end, ndays = None, None, 0
+        if start is not None:
+            console.print(f"[dim]Pending sync window: [bold]{start} → {end}[/bold] "
+                          f"(~{ndays} trading days behind).[/dim]")
+        else:
+            console.print("[dim]Prices are up to date — a fetch would sync nothing new.[/dim]")
+
+        fetch = Prompt.ask("Fetch latest bhavcopy from NSE? (public, needs network) [y/N]",
+                           default="n").lower() == "y"
+        full = False
+        if fetch:
+            console.print("[dim]Full sync also refreshes corporate actions (yfinance splits/"
+                          "dividends) and detects renames/delistings — keeps adjusted prices "
+                          "correct. Slower (~minutes).[/dim]")
+            full = Prompt.ask("Run FULL sync (corporate actions + renames)? [Y/n]",
+                              default="y").lower() == "y"
+
+        with console.status("[green]updating universe (this can take a while for a full sync)..."):
+            res = A.update_universe(fetch=fetch, full=full)
+
+        console.print(f"[green]Universe rebuilt: {res.symbols:,} symbols, {res.rows:,} rows.[/green]")
+        if res.window:
+            console.print(f"[dim]synced window: {res.window[0]} → {res.window[1]} "
+                          f"({res.pending_days} trading days)[/dim]")
+        for k, v in res.steps.items():
+            console.print(f"  [dim]{k:10}[/dim] {v}")
+
+        # Data-integrity: unrecorded corporate actions polluting adjusted prices.
+        if res.integrity_suspects:
+            t = Table("Symbol", "Date", "close/prev", box=None,
+                      title=f"⚠ {len(res.integrity_suspects)} unrecorded corporate-action suspect(s)")
+            for s in res.integrity_suspects[:15]:
+                t.add_row(s.symbol, s.date, f"{s.ratio:g}")
+            console.print(t)
+            tip = ("re-run with FULL sync (corporate actions) to record these"
+                   if not res.full else
+                   "these persist after a full refresh — likely genuine data gaps to inspect")
+            console.print(f"[yellow]These are overnight moves beyond circuit limits with no "
+                          f"adjustment record — {tip}.[/yellow]")
+        else:
+            console.print("[green]Data-integrity check: clean (adjustments in step with prices).[/green]")
 
     def universe_query(self) -> None:
         UQ = A.universe_query
