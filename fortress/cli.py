@@ -159,10 +159,8 @@ class App:
             ("coverage", "how many names are ranked, by tier"),
         ]
         console.print("[bold]Universe query[/bold]  [dim]— pick a mode:[/dim]")
-        for i, (name, desc) in enumerate(modes, 1):
-            console.print(f"  [bold]{i}[/bold]  {name:<9} [dim]{desc}[/dim]")
-        pick = Prompt.ask("Mode", choices=[str(i) for i in range(1, len(modes) + 1)], default="1")
-        kind = modes[int(pick) - 1][0]
+        kind = self._pick("Mode", [m[0] for m in modes], "search",
+                          descriptions=[m[1] for m in modes])
 
         if kind == "coverage":
             console.print(UQ.coverage(v))
@@ -182,8 +180,8 @@ class App:
         elif kind == "screen":
             lo = int(Prompt.ask("Rank band — low", default="1"))
             hi = int(Prompt.ask("Rank band — high", default="1000"))
-            tier = Prompt.ask("Tier filter", choices=["all"] + [t.lower() for t in UQ.TIER_NAMES],
-                              default="all")
+            console.print("[dim]Tier filter:[/dim]")
+            tier = self._pick("Tier", ["all"] + [t.lower() for t in UQ.TIER_NAMES], "all")
             mint = float(Prompt.ask("Min turnover (₹cr/day)", default="0"))
             top = int(Prompt.ask("Show top N", default="30"))
             rows, bd, asof, total = UQ.screen(d, v, rank_lo=lo, rank_hi=hi,
@@ -197,8 +195,8 @@ class App:
             console.print(self._TIER_LEGEND)
 
         elif kind == "lists":
-            tier = Prompt.ask("Which list", choices=[t.lower() for t in UQ.TIER_NAMES],
-                              default="mid")
+            console.print("[dim]Which cap-tier list:[/dim]")
+            tier = self._pick("List", [t.lower() for t in UQ.TIER_NAMES], "mid")
             top = int(Prompt.ask("Show top N (0 = all)", default="40"))
             rows, asof, total = UQ.tier_members(d, tier, v, top=top or 10_000)
             self._rowtable(rows[:top] if top else rows,
@@ -210,9 +208,12 @@ class App:
                           "hunting EARLY multibaggers (liquidity + price moving, runway ahead).[/dim]")
             lb = int(Prompt.ask("Lookback (months)", default="6"))
             # Which CURRENT-rank band to hunt climbers in — a cap tier or a custom range.
-            focus = Prompt.ask("Focus band",
-                               choices=["tail"] + [t.lower() for t in UQ.TIER_NAMES] + ["custom"],
-                               default="tail")
+            console.print("[dim]Focus band — where to hunt (a cap tier, the deep tail, or "
+                          "a custom rank range):[/dim]")
+            focus = self._pick(
+                "Focus", ["tail"] + [t.lower() for t in UQ.TIER_NAMES] + ["custom"], "tail",
+                descriptions=["deep tail (ranks 251-2000, outside large/mid)"]
+                + ["" for _ in UQ.TIER_NAMES] + ["enter your own rank low/high"])
             if focus == "tail":
                 rank_lo, rank_hi = 251, 2000            # deep tail (outside LARGE/MID)
             elif focus == "custom":
@@ -225,10 +226,12 @@ class App:
             top = int(Prompt.ask("Show top N", default="25"))
             excl = Prompt.ask("Exclude recent IPOs? (float onboarding ≠ markup) [Y/n]",
                               default="y").lower() == "y"
-            console.print("[dim]Preset — accumulation: EARLY (still basing, above 200SMA, not yet "
-                          "run) · runway: not-yet-parabolic · all: unfiltered (mostly already-run).[/dim]")
-            preset = Prompt.ask("Preset", choices=["accumulation", "runway", "all"],
-                                default="accumulation")
+            console.print("[dim]Preset:[/dim]")
+            preset = self._pick(
+                "Preset", ["accumulation", "runway", "all"], "accumulation",
+                descriptions=["EARLY — still basing, above 200SMA, not yet run",
+                              "not-yet-parabolic (12M return capped)",
+                              "unfiltered (mostly already-run)"])
             kw = {}
             if preset == "accumulation":
                 kw = dict(require_above_200sma=True, max_6m_return=30.0, max_12m_return=60.0)
@@ -271,10 +274,12 @@ class App:
         console.print(f"[dim]Current: strategy [bold]{self.config.active_strategy}[/bold] · "
                       f"universe [bold]v{self.config.universe.version[-1]}[/bold] · "
                       f"ranks [bold]{rr[0]}-{rr[1]}[/bold]. Press Enter to keep each.[/dim]")
-        s = Prompt.ask("Strategy", choices=list(A.selection.VALID_STRATEGIES),
-                       default=self.config.active_strategy)
-        v = Prompt.ask("Universe version  [dim](v2 = momentum-grade, recommended)[/dim]",
-                       choices=["v1", "v2"], default=self.config.universe.version)
+        console.print("[dim]Strategy:[/dim]")
+        s = self._pick("Strategy", sorted(A.selection.VALID_STRATEGIES),
+                       self.config.active_strategy)
+        console.print("[dim]Universe version:[/dim]")
+        v = self._pick("Version", ["v1", "v2"], self.config.universe.version,
+                       descriptions=["raw turnover universe", "momentum-grade (recommended)"])
         lo = int(Prompt.ask("Rank band — low", default=str(rr[0])))
         hi = int(Prompt.ask("Rank band — high", default=str(rr[1])))
         try:
@@ -509,6 +514,22 @@ class App:
                       "Quantities are approximate. Next: diligence each name (options 7/8 for "
                       "context, pair with the StockEdge MCP) before placing orders; re-run after "
                       "any swing exit.[/dim]")
+
+    @staticmethod
+    def _pick(label: str, options, default=None, descriptions=None) -> str:
+        """Numbered picker over string options; returns the chosen option value.
+        `default` is an option VALUE (falls back to the first); `descriptions`
+        is an optional parallel list shown dimmed after each option."""
+        options = list(options)
+        default = default if default in options else options[0]
+        di = options.index(default) + 1
+        for i, opt in enumerate(options, 1):
+            desc = descriptions[i - 1] if descriptions else ""
+            d = f"   [dim]{desc}[/dim]" if desc else ""
+            console.print(f"  [bold]{i}[/bold]  {opt}{d}")
+        pick = Prompt.ask(label, choices=[str(i) for i in range(1, len(options) + 1)],
+                          default=str(di))
+        return options[int(pick) - 1]
 
     @staticmethod
     def _sleeve_table(title: str, columns) -> Table:
