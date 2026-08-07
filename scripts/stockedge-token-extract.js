@@ -38,11 +38,23 @@
     return null;
   };
 
+  const pairFrom = (obj) => {
+    const at = obj.access_token || obj.accessToken || obj.token || obj.id_token;
+    const rt = obj.refresh_token || obj.refreshToken;
+    if (at && rt && typeof at === "string")
+      return { at, rt, exp_in: obj.expires_in || obj.expiresIn, expires_at: obj.expires_at };
+    return null;
+  };
+
   let found = null;
-  for (const store of [localStorage, sessionStorage]) {
-    for (let i = 0; i < store.length && !found; i++) {
-      found = hunt(store.getItem(store.key(i)), 0);
-    }
+  // sessionStorage first — StockEdge (oidc-client) keeps them there.
+  for (const store of [sessionStorage, localStorage]) {
+    // (a) sibling top-level keys: access_token / refresh_token as their own entries.
+    const flat = {};
+    for (let i = 0; i < store.length; i++) flat[store.key(i)] = store.getItem(store.key(i));
+    found = pairFrom(flat);
+    // (b) fallback: a single key holding a (possibly nested/stringified) token blob.
+    for (let i = 0; i < store.length && !found; i++) found = hunt(store.getItem(store.key(i)), 0);
     if (found) break;
   }
 
@@ -74,12 +86,17 @@
     return;
   }
 
-  // decode JWT exp if present, else fall back to expires_in / 24h
+  // prefer the access-token JWT exp; else the sibling expires_at (secs or ms);
+  // else expires_in / 24h from now.
   let expMs = null;
   try {
     const payload = JSON.parse(atob(found.at.split(".")[1]));
     if (payload.exp) expMs = payload.exp * 1000;
   } catch {}
+  if (!expMs && found.expires_at) {
+    const n = Number(found.expires_at);
+    if (n) expMs = n < 1e12 ? n * 1000 : n;   // normalize seconds -> ms
+  }
   const now = Date.now();
   const expIn = found.exp_in || 86400;
   if (!expMs) expMs = now + expIn * 1000;
