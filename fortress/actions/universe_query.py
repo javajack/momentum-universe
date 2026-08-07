@@ -7,18 +7,20 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-# Cap-tiers are TURNOVER-rank bands (not market cap) — mirrors config/indices.yml:
-# nifty_100 [1,100] · midcap_150 [101,250] · smallcap_250 [251,500] · tail [501,1000].
+# Cap-tiers are TURNOVER-rank bands (not market cap) — mirrors config/indices.yml
+# (nifty_100 [1,100] · midcap_150 [101,250] · smallcap_250 [251,500]) plus the
+# deep tail MICRO [501,1000] and NANO [1001,2000] now that we rank to depth 2000.
 TIER_BANDS: List[Tuple[str, int, int]] = [
     ("LARGE", 1, 100),
     ("MID", 101, 250),
     ("SMALL", 251, 500),
     ("MICRO", 501, 1000),
+    ("NANO", 1001, 2000),
 ]
 TIER_NAMES = [t[0] for t in TIER_BANDS]
 
@@ -98,10 +100,75 @@ def screen(as_of: date, version: str = "v2", *, rank_lo: int = 1, rank_hi: int =
 
 def tier_members(as_of: date, tier: str, version: str = "v2", top: int = 500
                  ) -> Tuple[List[UniverseRow], date, int]:
-    """All constituents of a tier list (LARGE/MID/SMALL/MICRO) on `as_of`."""
-    lo, hi = next(((l, h) for n, l, h in TIER_BANDS if n == tier.upper()), (1, 1000))
+    """All constituents of a tier list (LARGE/MID/SMALL/MICRO/NANO) on `as_of`."""
+    lo, hi = next(((l, h) for n, l, h in TIER_BANDS if n == tier.upper()), (1, 2000))
     rows, _bd, asof, total = screen(as_of, version, rank_lo=lo, rank_hi=hi, top=top)
     return rows, asof, total
+
+
+# ---------------------------------------------------------------------------
+# rank-velocity radar — fast climbers + new entrants from the deep tail
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ClimberRow:
+    symbol: str
+    rank_now: int
+    rank_past: Optional[int]   # None = new entrant (was beyond the past depth)
+    new_entrant: bool
+    velocity: int              # rank improvement; for new entrants the implied minimum
+    turnover: float
+    tier: str
+    sector: str
+
+
+def _climber_velocity(rank_now: int, rank_past: Optional[int], past_max: int
+                      ) -> Tuple[bool, int]:
+    """(is_new_entrant, velocity). A new entrant came from beyond the past
+    ranking depth, so its climb is at least (past_max - rank_now + 1)."""
+    if rank_past is None:
+        return True, past_max - rank_now + 1
+    return False, rank_past - rank_now
+
+
+def rank_velocity(
+    as_of: date, version: str = "v1", *, lookback_months: int = 6,
+    top: int = 25, min_turnover_cr: float = 1.0, min_climb: int = 150,
+    min_rank_now: int = 251,
+) -> Tuple[List[ClimberRow], date, date, int]:
+    """Stocks climbing the turnover rank FASTEST over `lookback_months` — fast
+    climbers AND new entrants — from the DEEP TAIL. A research radar for 'sudden
+    interest' names OUTSIDE the popular cap lists, NOT a buy list.
+
+    Defaults chosen for the intent: version 'v1' (raw turnover rank to depth
+    2000 — v2's quality filter would hide emerging names and shallow the past
+    depth); `min_rank_now=251` keeps only names currently BELOW LARGE/MID (i.e.
+    still under the radar). Returns (rows sorted by velocity, now as-of, past
+    as-of, past ranking depth)."""
+    u = _universe(version)
+    now_snap = u.universe_at(as_of)
+    past_snap = u.universe_at(as_of - timedelta(days=int(lookback_months * 30.4)))
+    past_rank = dict(zip(past_snap["symbol"], past_snap["rank"]))
+    past_max = int(past_snap["rank"].max()) if len(past_snap) else 0
+    sectors = _sectors()
+
+    rows: List[ClimberRow] = []
+    for _, r in now_snap.iterrows():
+        sym, rn, turn = r["symbol"], int(r["rank"]), float(r["metric_value"])
+        if rn < min_rank_now:                        # still under the radar (not LARGE/MID)
+            continue
+        if turn < min_turnover_cr * 1e7:            # researchable-liquidity floor
+            continue
+        rp = past_rank.get(sym)
+        new, vel = _climber_velocity(rn, int(rp) if rp is not None else None, past_max)
+        if vel < min_climb:                          # not climbing fast enough
+            continue
+        rows.append(ClimberRow(symbol=sym, rank_now=rn,
+                               rank_past=(int(rp) if rp is not None else None),
+                               new_entrant=new, velocity=vel, turnover=turn,
+                               tier=_tier(rn), sector=_sec(sectors, sym)))
+    rows.sort(key=lambda x: x.velocity, reverse=True)
+    return rows[:top], _asof(now_snap, as_of), _asof(past_snap, as_of), past_max
 
 
 def list_indices(version: str = "v2") -> List[str]:

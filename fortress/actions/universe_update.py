@@ -20,6 +20,12 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 
+# How deep to rank the universe (top-K by turnover). 2000 lets the rank-velocity
+# radar see the deep tail (names climbing before they reach top-1000 liquidity).
+# The pipeline computes turnover for the full universe anyway, so this only
+# changes truncation + storage — cheap.
+RANK_DEPTH = 2000
+
 
 @dataclass
 class IntegritySuspect:
@@ -109,6 +115,31 @@ def check_data_integrity(
             for r in rows]
 
 
+def _gap_symbols(start: date, end: date, lo: float = 0.6, hi: float = 1.6) -> List[str]:
+    """Symbols showing a corporate-action footprint (overnight move beyond ~circuit
+    limits with no adj_events record) in the freshly-synced [start, end] window —
+    the targeted set whose actions need a yfinance refresh. Cheap delta signal."""
+    from nse_universe.core.db import db
+
+    with db(read_only=True) as con:
+        rows = con.execute(
+            """
+            SELECT DISTINCT b.symbol
+              FROM bhav_daily b
+             WHERE b.date BETWEEN ? AND ?
+               AND b.prev_close > 0
+               AND (b.close < ? * b.prev_close OR b.close > ? * b.prev_close)
+               AND NOT EXISTS (
+                     SELECT 1 FROM adj_events a
+                      WHERE a.symbol = b.symbol
+                        AND a.event_date BETWEEN b.date - INTERVAL 7 DAY
+                                             AND b.date + INTERVAL 7 DAY)
+            """,
+            [start, end, lo, hi],
+        ).fetchall()
+    return [r[0] for r in rows]
+
+
 def pending_window(version: str = "v2", end: Optional[date] = None
                    ) -> Tuple[Optional[date], date, int]:
     """(start, end, weekday_count) that a fetch would sync — for a preview
@@ -131,6 +162,7 @@ def update_universe(
     *,
     fetch: bool = False,
     full: bool = False,
+    deep_actions: bool = False,
     start: Optional[date] = None,
     end: Optional[date] = None,
     version: str = "v2",
@@ -139,10 +171,17 @@ def update_universe(
 
     fetch=False → offline rebuild from committed data (no network).
     fetch=True  → sync the pending bhavcopy window (last-synced+1 -> today by
-                  default), ingest, recompute ranks, rebuild.
-    full=True   → also refresh corporate actions (yfinance) and detect renames
-                  before recomputing ranks — keeps adjustments/universe correct.
+                  default), ingest, recompute BOTH v1 and v2 ranks (depth 2000),
+                  rebuild.
+    full=True   → also refresh corporate actions + detect renames. By default
+                  corporate actions are refreshed ONLY for symbols showing a
+                  split/bonus footprint in the newly-synced days (targeted delta
+                  — seconds, not the ~2000-symbol minutes-long full crawl).
+    deep_actions=True → force the full corporate-actions sweep (all symbols) —
+                  the periodic backstop that also catches pure dividends.
     """
+    import dataclasses
+
     from nse_universe.core.db import rebuild_from_parquet
     from nse_universe.core.export import import_all_if_missing
 
@@ -152,6 +191,7 @@ def update_universe(
         from nse_universe.fetch.bhav import sync_range
         from nse_universe.ingest.bhav import ingest_all_pending
         from nse_universe.rank.monthly import recompute_all
+        from nse_universe.rank.v2 import DEFAULT_V2_CONFIG, recompute_v2_all
 
         end = end or date.today()
         if start is None:
@@ -169,14 +209,28 @@ def update_universe(
         if full:
             from nse_universe.actions.fetch import refresh_actions
             from nse_universe.core import state as state_mod
-            r = refresh_actions()
+            if deep_actions:
+                r = refresh_actions()                       # full sweep (all symbols)
+                res.steps["actions"] = (f"[full] ok={r.ok} splits={r.splits} "
+                                        f"dividends={r.dividends} errors={r.errors}")
+            else:
+                gaps = _gap_symbols(start, end)              # targeted delta
+                if gaps:
+                    r = refresh_actions(symbols=gaps)
+                    res.steps["actions"] = (f"[targeted:{len(gaps)}] ok={r.ok} "
+                                            f"splits={r.splits} dividends={r.dividends}")
+                else:
+                    res.steps["actions"] = ("[targeted:0] no split/bonus footprint in "
+                                            "new days — run a deep sweep for dividends")
             state_mod.mark_actions_refreshed()
-            res.steps["actions"] = (f"ok={r.ok} splits={r.splits} "
-                                    f"dividends={r.dividends} errors={r.errors}")
             res.steps["renames"] = _detect_renames()
 
-        recompute_all()
-        res.steps["rank"] = "recomputed"
+        # Recompute BOTH v1 (universe_rank) and v2 (universe_v2) at depth 2000 —
+        # v2 is what the strategies/scans use; recompute_v2_all was previously
+        # NOT wired here, leaving v2 stale after a fetch.
+        recompute_all(top_k=RANK_DEPTH)
+        recompute_v2_all(cfg=dataclasses.replace(DEFAULT_V2_CONFIG, top_k=RANK_DEPTH))
+        res.steps["rank"] = f"v1+v2 recomputed (depth {RANK_DEPTH})"
 
     stats = rebuild_from_parquet()
     import_all_if_missing()

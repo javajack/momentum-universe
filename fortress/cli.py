@@ -23,7 +23,7 @@ console = Console()
 MENU = [
     ("§", "DATA"),
     ("1", "Universe update", "fetch + full sync + integrity check"),
-    ("2", "Universe query", "search · screen by tier · browse lists"),
+    ("2", "Universe query", "search · screen · lists · climbers"),
     ("3", "Settings", "strategy · universe · rank band"),
     ("§", "RESEARCH"),
     ("4", "Backtest", "historical sim, custom window"),
@@ -96,16 +96,22 @@ class App:
 
         fetch = Prompt.ask("Fetch latest bhavcopy from NSE? (public, needs network) [y/N]",
                            default="n").lower() == "y"
-        full = False
+        full = deep = False
         if fetch:
-            console.print("[dim]Full sync also refreshes corporate actions (yfinance splits/"
-                          "dividends) and detects renames/delistings — keeps adjusted prices "
-                          "correct. Slower (~minutes).[/dim]")
+            console.print("[dim]Full sync refreshes corporate actions + detects renames, and "
+                          "recomputes both v1 and v2 ranks — keeps adjusted prices correct.[/dim]")
             full = Prompt.ask("Run FULL sync (corporate actions + renames)? [Y/n]",
                               default="y").lower() == "y"
+            if full:
+                console.print("[dim]By default only symbols with a split/bonus footprint in the "
+                              "new days are refreshed (fast, seconds). A DEEP sweep re-checks all "
+                              "~2000 symbols (slow ~minutes) and also catches pure dividends — "
+                              "run occasionally.[/dim]")
+                deep = Prompt.ask("Also run a DEEP corporate-actions sweep (all symbols)? [y/N]",
+                                  default="n").lower() == "y"
 
-        with console.status("[green]updating universe (this can take a while for a full sync)..."):
-            res = A.update_universe(fetch=fetch, full=full)
+        with console.status("[green]updating universe (this can take a while for a full/deep sync)..."):
+            res = A.update_universe(fetch=fetch, full=full, deep_actions=deep)
 
         console.print(f"[green]Universe rebuilt: {res.symbols:,} symbols, {res.rows:,} rows.[/green]")
         if res.window:
@@ -143,7 +149,7 @@ class App:
     def universe_query(self) -> None:
         UQ = A.universe_query
         v = self.config.universe.version
-        kind = Prompt.ask("Query", choices=["search", "screen", "lists", "coverage"],
+        kind = Prompt.ask("Query", choices=["search", "screen", "lists", "climbers", "coverage"],
                           default="search")
 
         if kind == "coverage":
@@ -186,6 +192,34 @@ class App:
             self._rowtable(rows[:top] if top else rows,
                            f"{tier.upper()} list — {total} names, as-of {asof}")
             console.print(self._TIER_LEGEND)
+
+        elif kind == "climbers":
+            console.print("[dim]Stocks climbing the turnover rank FASTEST (fast climbers + new "
+                          "entrants) across the full depth — a radar for sudden interest.[/dim]")
+            lb = int(Prompt.ask("Lookback (months)", default="6"))
+            mint = float(Prompt.ask("Min turnover (₹cr/day)", default="1"))
+            top = int(Prompt.ask("Show top N", default="25"))
+            with console.status("[green]scanning rank velocity across the deep tail..."):
+                # radar uses v1 (raw turnover rank to depth 2000) — see the action
+                rows, now_asof, past_asof, _pm = UQ.rank_velocity(
+                    d, lookback_months=lb, min_turnover_cr=mint, top=top)
+            if not rows:
+                console.print("[yellow]No fast climbers / new entrants match those criteria.[/yellow]")
+                return
+            t = Table("Symbol", "then→now", "Δclimb", "₹Cr/day", "Tier", "Sector",
+                      box=None, title=f"Rank climbers — {past_asof} → {now_asof} ({len(rows)} names)")
+            for r in rows:
+                traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
+                delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
+                t.add_row(r.symbol, traj, delta, f"{r.turnover / 1e7:.1f}", r.tier,
+                          (r.sector or "")[:18])
+            console.print(t)
+            console.print("[magenta]⚑ Research watchlist — NOT a buy list. Each row is a "
+                          "'why is this suddenly liquid?' question: hand it to StockEdge / news / "
+                          "fundamentals to find the catalyst.[/magenta]")
+            console.print("[dim]then→now = rank at start vs now (lower = more liquid) · "
+                          "Δclimb = ranks improved (≥ = new entrant, climbed from beyond the "
+                          "old depth) · Tier = current turnover band.[/dim]")
 
     def settings(self) -> None:
         """Session settings: strategy + universe version + rank band. These drive

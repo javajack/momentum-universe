@@ -23,7 +23,7 @@ one-time). Then you get an interactive menu:
 ```
  DATA
 1   Universe update          fetch + full sync + data-integrity check
-2   Universe query           search ticker · screen by tier · browse lists
+2   Universe query           search · screen by tier · lists · rank climbers
 3   Settings                 strategy · universe version · rank band
  RESEARCH
 4   Backtest                 historical simulation over a custom window
@@ -252,6 +252,7 @@ deliberately does not model) on top:
 | `swing_allocation_plan` | capital → 3+2 slot split: ticker, qty, ₹ allocation, stop, rotation days |
 | `momentum_scan` | top-N ranked stocks under the active strategy |
 | `emerging_scan` | stocks EARLY in a move (rank climbing + early momentum) — the pre-run complement |
+| `rank_velocity` | rank-climb radar (fast climbers + new entrants) to depth 2000 — research watchlist for "sudden interest" names |
 | `fresh_allocation` | enter ₹ (momentum + swing) → combined breakup with qty, overlap + ADV flags, no holdings |
 | `momentum_allocation` | capital (+ holdings) → target weights, quantities, orders |
 | `market_state` | current regime, VIX, stress, equity/gold/cash split |

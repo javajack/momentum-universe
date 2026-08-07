@@ -274,6 +274,39 @@ def build_server():
         }
 
     @mcp.tool()
+    def rank_velocity(
+        lookback_months: int = 6,
+        top_n: int = 25,
+        min_turnover_cr: float = 1.0,
+        min_climb: int = 150,
+    ) -> dict:
+        """Rank-velocity radar: stocks climbing the turnover rank FASTEST over the
+        lookback (fast climbers AND new entrants) across the full ranked depth
+        (to rank 2000). Surfaces 'sudden interest' names — often outside the
+        popular cap lists — as RESEARCH candidates, not a buy list. For each:
+        symbol, rank then vs now, velocity (rank improvement; a minimum for new
+        entrants), current tier, turnover, sector. Intended use: pull these,
+        then investigate the catalyst per name via fundamentals / news."""
+        from datetime import date as _date
+
+        from fortress import actions as A
+        with _quiet_stdout():
+            rows, now_asof, past_asof, past_max = A.universe_query.rank_velocity(
+                _date.today(), lookback_months=lookback_months, top=top_n,
+                min_turnover_cr=min_turnover_cr, min_climb=min_climb)
+        return {
+            "as_of": _to_jsonable(now_asof),
+            "compared_to": _to_jsonable(past_asof),
+            "past_depth": past_max,
+            "note": "research watchlist (sudden liquidity), not a buy list",
+            "climbers": [{
+                "symbol": r.symbol, "rank_now": r.rank_now, "rank_past": r.rank_past,
+                "new_entrant": r.new_entrant, "velocity": r.velocity,
+                "tier": r.tier, "daily_turnover": r.turnover, "sector": r.sector,
+            } for r in rows],
+        }
+
+    @mcp.tool()
     def momentum_allocation(
         capital: float,
         top_n: Optional[int] = None,
