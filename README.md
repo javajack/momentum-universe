@@ -23,7 +23,7 @@ one-time). Then you get an interactive menu:
 ```
  DATA
 1   Universe update          fetch + full sync + data-integrity check
-2   Universe query           search · screen by tier · lists · rank climbers
+2   Universe query           search · screen · lists · climbers · converge (v1∩v2)
 3   Settings                 strategy · universe version · rank band
  RESEARCH
 4   Backtest                 historical simulation over a custom window

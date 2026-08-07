@@ -156,6 +156,7 @@ class App:
             ("screen",   "filter a rank band / tier / turnover floor"),
             ("lists",    "browse a cap tier — large / mid / small / micro / nano"),
             ("climbers", "deep-tail rank climbers — hunt early multibaggers"),
+            ("converge", "hunt v1 + confirm v2 → diligence the overlap (highest-confidence climbers)"),
             ("coverage", "how many names are ranked, by tier"),
         ]
         console.print("[bold]Universe query[/bold]  [dim]— pick a mode:[/dim]")
@@ -233,37 +234,7 @@ class App:
                 descriptions=["raw deep tail to rank 2000 — earliest/smallest, more noise",
                               "quality-vetted (~1128) — pre-cleared liquidity/surveillance, "
                               "cleaner; 'new→' = just graduated into the tradeable universe"])
-            lb = int(Prompt.ask("Lookback (months)", default="6"))
-            # Which CURRENT-rank band to hunt climbers in — a cap tier or a custom range.
-            console.print("[dim]Focus band — where to hunt (a cap tier, the deep tail, or "
-                          "a custom rank range):[/dim]")
-            focus = self._pick(
-                "Focus", ["tail"] + [t.lower() for t in UQ.TIER_NAMES] + ["custom"], "tail",
-                descriptions=["deep tail (ranks 251-2000, outside large/mid)"]
-                + ["" for _ in UQ.TIER_NAMES] + ["enter your own rank low/high"])
-            if focus == "tail":
-                rank_lo, rank_hi = 251, 2000            # deep tail (outside LARGE/MID)
-            elif focus == "custom":
-                rank_lo = int(Prompt.ask("Rank band — low", default="1000"))
-                rank_hi = int(Prompt.ask("Rank band — high", default="1500"))
-            else:
-                rank_lo, rank_hi = next((lo, hi) for n, lo, hi in UQ.TIER_BANDS
-                                        if n == focus.upper())
-            mint = float(Prompt.ask("Min turnover (₹cr/day, tradeable floor)", default="10"))
-            top = int(Prompt.ask("Show top N", default="25"))
-            excl = Prompt.ask("Exclude recent IPOs? (float onboarding ≠ markup) [Y/n]",
-                              default="y").lower() == "y"
-            console.print("[dim]Preset:[/dim]")
-            preset = self._pick(
-                "Preset", ["accumulation", "runway", "all"], "accumulation",
-                descriptions=["EARLY — still basing, above 200SMA, not yet run",
-                              "not-yet-parabolic (12M return capped)",
-                              "unfiltered (mostly already-run)"])
-            kw = {}
-            if preset == "accumulation":
-                kw = dict(require_above_200sma=True, max_6m_return=30.0, max_12m_return=60.0)
-            elif preset == "runway":
-                kw = dict(max_12m_return=100.0)
+            lb, rank_lo, rank_hi, mint, top, excl, preset, kw = self._ask_climber_params(UQ)
             with console.status(f"[green]scanning rank velocity + price momentum "
                                 f"({climb_v}, ranks {rank_lo}-{rank_hi}, {preset})..."):
                 rows, now_asof, past_asof, _pm = UQ.rank_velocity(
@@ -272,36 +243,48 @@ class App:
             if not rows:
                 console.print("[yellow]No climbers match those criteria.[/yellow]")
                 return
-            t = Table("Symbol", "then→now", "Δclimb", "Event", "6M", "12M", "OffHi",
-                      "MaxDD", "200", "₹Cr/day", "Tier", "Sector", box=None,
-                      title=f"Rank climbers · {climb_v} · ranks {rank_lo}-{rank_hi} · {preset} "
-                            f"— {past_asof} → {now_asof} ({len(rows)} names)")
-            for r in rows:
-                traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
-                delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
-                r6 = f"{r.ret_6m_pct:+.0f}%" if r.ret_6m_pct is not None else "—"
-                r12 = f"{r.ret_12m_pct:+.0f}%" if r.ret_12m_pct is not None else "—"
-                offhi = f"{r.off_high_pct:.0f}%" if r.off_high_pct is not None else "—"
-                dd = f"{r.max_dd_6m:.0f}%" if r.max_dd_6m is not None else "—"
-                sma = "✓" if r.above_200sma else ("·" if r.above_200sma is not None else "—")
-                # Event column: IPO listing or a recent split/bonus — both mean the
-                # liquidity climb may be mechanical (float onboarding / multiply), not organic.
-                event = "IPO" if r.is_ipo else (f"⤢{r.recent_action}" if r.recent_action else "")
-                t.add_row(r.symbol, traj, delta, event, r6, r12, offhi, dd, sma,
-                          f"{r.turnover / 1e7:.1f}", r.tier, (r.sector or "")[:16])
-            console.print(t)
-            tickers = " ".join(r.symbol for r in rows)
+            console.print(self._climbers_table(
+                rows, f"Rank climbers · {climb_v} · ranks {rank_lo}-{rank_hi} · {preset} "
+                      f"— {past_asof} → {now_asof} ({len(rows)} names)"))
             console.print(f"\n[dim]Paste-ready shortlist ({len(rows)}) — copy into a StockEdge-MCP "
-                          f"diligence prompt:[/dim]\n{tickers}")
-            console.print("\n[magenta]⚑ Research watchlist — NOT a buy list. EARLY sweet spot: rank "
-                          "climbing + above 200SMA + price still BASING (low 6M) + near its high "
-                          "(OffHi ~0). Confirm the catalyst via StockEdge / news.[/magenta]")
-            console.print("[dim]Δclimb ≥ = new entrant · 6M/12M = price return · OffHi = % below "
-                          "52w-high (0 = at high; −30 = faded) · MaxDD = worst 6-month drawdown "
-                          "(deep = crash-and-recover round-trip, not a base) · 200 ✓ = above 200SMA.\n"
-                          "Event: IPO = recent listing · ⤢×N = split/bonus in the climb window — "
-                          "both mean the liquidity climb may be MECHANICAL (float onboarding / "
-                          "multiply), not organic accumulation.[/dim]")
+                          f"diligence prompt:[/dim]\n{' '.join(r.symbol for r in rows)}")
+            self._climbers_legend()
+
+        elif kind == "converge":
+            console.print("[dim]Cross-check climbers: HUNT in v1 (raw deep tail, widest net) + "
+                          "CONFIRM in v2 (quality-vetted). The OVERLAP is your highest-confidence "
+                          "set — names that climb regardless of how the universe is defined. Same "
+                          "params run on both universes.[/dim]")
+            lb, rank_lo, rank_hi, mint, top, excl, preset, kw = self._ask_climber_params(UQ)
+            with console.status(f"[green]hunting v1 + confirming v2 "
+                                f"(ranks {rank_lo}-{rank_hi}, {preset})..."):
+                r1, now_asof, past_asof, _ = UQ.rank_velocity(
+                    d, version="v1", lookback_months=lb, rank_lo=rank_lo, rank_hi=rank_hi,
+                    min_turnover_cr=mint, top=top, exclude_ipos=excl, **kw)
+                r2, _n2, _p2, _ = UQ.rank_velocity(
+                    d, version="v2", lookback_months=lb, rank_lo=rank_lo, rank_hi=rank_hi,
+                    min_turnover_cr=mint, top=top, exclude_ipos=excl, **kw)
+            by1, s2 = {r.symbol: r for r in r1}, {r.symbol for r in r2}
+            s1 = set(by1)
+            overlap = [r for r in r1 if r.symbol in s2]          # v1 rows, v1 velocity order
+            v1only = [r for r in r1 if r.symbol not in s2]
+            v2only = [r for r in r2 if r.symbol not in s1]
+            if overlap:
+                console.print(self._climbers_table(
+                    overlap, f"✪ CONFIRMED in BOTH v1+v2 · ranks {rank_lo}-{rank_hi} · {preset} "
+                             f"— {past_asof} → {now_asof} ({len(overlap)} names · highest confidence)"))
+                console.print(f"\n[bold green]Priority diligence — paste-ready (climbs in both "
+                              f"universes):[/bold green]\n{' '.join(r.symbol for r in overlap)}")
+            else:
+                console.print("[yellow]No names climb in BOTH universes for these params — "
+                              "no high-confidence overlap. Widen the band or lower the floor.[/yellow]")
+            console.print(f"\n[dim]v1-only ({len(v1only)}) — deeper/rawer net; either graduated "
+                          f"ABOVE the band (now large/mid) or sits BELOW v2's quality bar (diligence "
+                          f"hard):[/dim]\n{' '.join(r.symbol for r in v1only) or '—'}")
+            console.print(f"\n[dim]v2-only ({len(v2only)}) — clean emerging-quality; just cleared the "
+                          f"liquidity/surveillance gates ('new→' = graduated into the tradeable "
+                          f"universe):[/dim]\n{' '.join(r.symbol for r in v2only) or '—'}")
+            self._climbers_legend()
 
     def settings(self) -> None:
         """Session settings: strategy + universe version + rank band. These drive
@@ -567,6 +550,76 @@ class App:
         pick = Prompt.ask(label, choices=[str(i) for i in range(1, len(options) + 1)],
                           default=str(di))
         return options[int(pick) - 1]
+
+    def _ask_climber_params(self, UQ):
+        """Shared climber prompts (lookback / focus band / turnover floor / top-N /
+        exclude-IPOs / preset). Returns (lb, rank_lo, rank_hi, mint, top, excl,
+        preset, kw) — kw is the rank_velocity preset kwargs. The v1/v2 universe
+        choice is asked separately by each mode (climbers picks one; converge runs both)."""
+        lb = int(Prompt.ask("Lookback (months)", default="6"))
+        console.print("[dim]Focus band — where to hunt (a cap tier, the deep tail, or "
+                      "a custom rank range):[/dim]")
+        focus = self._pick(
+            "Focus", ["tail"] + [t.lower() for t in UQ.TIER_NAMES] + ["custom"], "tail",
+            descriptions=["deep tail (ranks 251-2000, outside large/mid)"]
+            + ["" for _ in UQ.TIER_NAMES] + ["enter your own rank low/high"])
+        if focus == "tail":
+            rank_lo, rank_hi = 251, 2000
+        elif focus == "custom":
+            rank_lo = int(Prompt.ask("Rank band — low", default="1000"))
+            rank_hi = int(Prompt.ask("Rank band — high", default="1500"))
+        else:
+            rank_lo, rank_hi = next((lo, hi) for n, lo, hi in UQ.TIER_BANDS
+                                    if n == focus.upper())
+        mint = float(Prompt.ask("Min turnover (₹cr/day, tradeable floor)", default="10"))
+        top = int(Prompt.ask("Show top N", default="25"))
+        excl = Prompt.ask("Exclude recent IPOs? (float onboarding ≠ markup) [Y/n]",
+                          default="y").lower() == "y"
+        console.print("[dim]Preset:[/dim]")
+        preset = self._pick(
+            "Preset", ["accumulation", "runway", "all"], "accumulation",
+            descriptions=["EARLY — still basing, above 200SMA, not yet run",
+                          "not-yet-parabolic (12M return capped)",
+                          "unfiltered (mostly already-run)"])
+        kw = {}
+        if preset == "accumulation":
+            kw = dict(require_above_200sma=True, max_6m_return=30.0, max_12m_return=60.0)
+        elif preset == "runway":
+            kw = dict(max_12m_return=100.0)
+        return lb, rank_lo, rank_hi, mint, top, excl, preset, kw
+
+    @staticmethod
+    def _climbers_table(rows, title: str) -> Table:
+        """Build the standard rank-climbers table (trajectory / velocity / flags /
+        returns / drawdown / turnover / tier / sector) for a list of ClimberRows."""
+        t = Table("Symbol", "then→now", "Δclimb", "Event", "6M", "12M", "OffHi",
+                  "MaxDD", "200", "₹Cr/day", "Tier", "Sector", box=None, title=title)
+        for r in rows:
+            traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
+            delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
+            r6 = f"{r.ret_6m_pct:+.0f}%" if r.ret_6m_pct is not None else "—"
+            r12 = f"{r.ret_12m_pct:+.0f}%" if r.ret_12m_pct is not None else "—"
+            offhi = f"{r.off_high_pct:.0f}%" if r.off_high_pct is not None else "—"
+            dd = f"{r.max_dd_6m:.0f}%" if r.max_dd_6m is not None else "—"
+            sma = "✓" if r.above_200sma else ("·" if r.above_200sma is not None else "—")
+            # Event: IPO listing or a recent split/bonus — both mean the liquidity
+            # climb may be mechanical (float onboarding / multiply), not organic.
+            event = "IPO" if r.is_ipo else (f"⤢{r.recent_action}" if r.recent_action else "")
+            t.add_row(r.symbol, traj, delta, event, r6, r12, offhi, dd, sma,
+                      f"{r.turnover / 1e7:.1f}", r.tier, (r.sector or "")[:16])
+        return t
+
+    @staticmethod
+    def _climbers_legend() -> None:
+        console.print("\n[magenta]⚑ Research watchlist — NOT a buy list. EARLY sweet spot: rank "
+                      "climbing + above 200SMA + price still BASING (low 6M) + near its high "
+                      "(OffHi ~0). Confirm the catalyst via StockEdge / news.[/magenta]")
+        console.print("[dim]Δclimb ≥ = new entrant · 6M/12M = price return · OffHi = % below "
+                      "52w-high (0 = at high; −30 = faded) · MaxDD = worst 6-month drawdown "
+                      "(deep = crash-and-recover round-trip, not a base) · 200 ✓ = above 200SMA.\n"
+                      "Event: IPO = recent listing · ⤢×N = split/bonus in the climb window — "
+                      "both mean the liquidity climb may be MECHANICAL (float onboarding / "
+                      "multiply), not organic accumulation.[/dim]")
 
     @staticmethod
     def _sleeve_table(title: str, columns) -> Table:
