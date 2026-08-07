@@ -227,6 +227,12 @@ class App:
         elif kind == "climbers":
             console.print("[dim]Deep-tail turnover-rank climbers, enriched with price momentum — "
                           "hunting EARLY multibaggers (liquidity + price moving, runway ahead).[/dim]")
+            console.print("[dim]Universe to hunt in:[/dim]")
+            climb_v = self._pick(
+                "Universe", ["v1", "v2"], "v1",
+                descriptions=["raw deep tail to rank 2000 — earliest/smallest, more noise",
+                              "quality-vetted (~1128) — pre-cleared liquidity/surveillance, "
+                              "cleaner; 'new→' = just graduated into the tradeable universe"])
             lb = int(Prompt.ask("Lookback (months)", default="6"))
             # Which CURRENT-rank band to hunt climbers in — a cap tier or a custom range.
             console.print("[dim]Focus band — where to hunt (a cap tier, the deep tail, or "
@@ -259,17 +265,17 @@ class App:
             elif preset == "runway":
                 kw = dict(max_12m_return=100.0)
             with console.status(f"[green]scanning rank velocity + price momentum "
-                                f"(ranks {rank_lo}-{rank_hi}, {preset})..."):
+                                f"({climb_v}, ranks {rank_lo}-{rank_hi}, {preset})..."):
                 rows, now_asof, past_asof, _pm = UQ.rank_velocity(
-                    d, lookback_months=lb, rank_lo=rank_lo, rank_hi=rank_hi,
+                    d, version=climb_v, lookback_months=lb, rank_lo=rank_lo, rank_hi=rank_hi,
                     min_turnover_cr=mint, top=top, exclude_ipos=excl, **kw)
             if not rows:
                 console.print("[yellow]No climbers match those criteria.[/yellow]")
                 return
             t = Table("Symbol", "then→now", "Δclimb", "Event", "6M", "12M", "OffHi",
                       "MaxDD", "200", "₹Cr/day", "Tier", "Sector", box=None,
-                      title=f"Rank climbers, ranks {rank_lo}-{rank_hi} [{preset}] — "
-                            f"{past_asof} → {now_asof} ({len(rows)} names)")
+                      title=f"Rank climbers · {climb_v} · ranks {rank_lo}-{rank_hi} · {preset} "
+                            f"— {past_asof} → {now_asof} ({len(rows)} names)")
             for r in rows:
                 traj = f"new→{r.rank_now}" if r.new_entrant else f"{r.rank_past}→{r.rank_now}"
                 delta = f"≥{r.velocity}" if r.new_entrant else f"+{r.velocity}"
