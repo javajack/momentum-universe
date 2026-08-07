@@ -151,8 +151,18 @@ class App:
     def universe_query(self) -> None:
         UQ = A.universe_query
         v = self.config.universe.version
-        kind = Prompt.ask("Query", choices=["search", "screen", "lists", "climbers", "coverage"],
-                          default="search")
+        modes = [
+            ("search",   "find a ticker by name fragment (e.g. BAJAJ)"),
+            ("screen",   "filter a rank band / tier / turnover floor"),
+            ("lists",    "browse a cap tier — large / mid / small / micro / nano"),
+            ("climbers", "deep-tail rank climbers — hunt early multibaggers"),
+            ("coverage", "how many names are ranked, by tier"),
+        ]
+        console.print("[bold]Universe query[/bold]  [dim]— pick a mode:[/dim]")
+        for i, (name, desc) in enumerate(modes, 1):
+            console.print(f"  [bold]{i}[/bold]  {name:<9} [dim]{desc}[/dim]")
+        pick = Prompt.ask("Mode", choices=[str(i) for i in range(1, len(modes) + 1)], default="1")
+        kind = modes[int(pick) - 1][0]
 
         if kind == "coverage":
             console.print(UQ.coverage(v))
