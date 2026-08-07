@@ -53,6 +53,15 @@ Append to `~/.codex/config.toml`:
   scanners (high_base_52w breakouts x3, rsi2_pullback mean-reversion x2 —
   the validated best split). Returns per-slot ticker, quantity, rupee
   allocation, suggested stop, and forced-rotation horizon in trading days.
+- fresh_allocation(momentum_capital=0, swing_capital=0, climbers_capital=0,
+    momentum_top_n?, hb_slots=3, rsi_slots=2, climbers_top_n=8)
+  Stateless "here is Rs X, what do I buy?" — a fresh combined buy plan for the
+  entered amounts, NO existing holdings. Splits across three sleeves (any 0 to
+  skip): momentum (active strategy), swing (3+2 partition), and climbers — the
+  validated SATELLITE accumulation-climbers strategy (rank-velocity 1-500 band,
+  still basing, ~5 concentrated names, quarterly rotation, higher-risk alpha).
+  Returns per-stock qty/value/stop/rotation, overlap flags across all sleeves,
+  ADV fill-risk per slot, and a regime hint. Diligence each climber's catalyst.
 - momentum_scan(top_n=20)
   Top-N ranked momentum stocks under the active strategy (default
   regime_switched_momentum) with score, 52w-high proximity, returns,

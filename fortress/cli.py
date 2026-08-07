@@ -381,18 +381,26 @@ class App:
         if sw > 0:
             hb = int(Prompt.ask("  → swing: high-base (breakout) slots", default="3"))
             rs = int(Prompt.ask("  → swing: RSI-pullback slots", default="2"))
-        if mom <= 0 and sw <= 0:
-            console.print("[yellow]Nothing to allocate — both amounts were 0.[/yellow]")
+        console.print("[dim]Climbers = SATELLITE sleeve: accumulation rank-climbers (1-500 band, "
+                      "still basing), ~5 concentrated names, QUARTERLY rotation. Higher-risk "
+                      "alpha (validated ~+20%/yr vs the band) — size small.[/dim]")
+        cl = float(Prompt.ask("Climbers ₹ to deploy (satellite)", default="0"))
+        cl_n = 8
+        if cl > 0:
+            cl_n = int(Prompt.ask("  → max climbers to hold (cap; ~5 usually qualify)", default="8"))
+        if mom <= 0 and sw <= 0 and cl <= 0:
+            console.print("[yellow]Nothing to allocate — all amounts were 0.[/yellow]")
             return
 
         with console.status("[green]building fresh allocation..."):
             plan = A.fresh_allocation(self.config, momentum_capital=mom, swing_capital=sw,
-                                      momentum_top_n=mom_n, hb_slots=hb, rsi_slots=rs)
+                                      climbers_capital=cl, momentum_top_n=mom_n,
+                                      hb_slots=hb, rsi_slots=rs, climbers_top_n=cl_n)
 
         style = {"defensive": "red", "caution": "yellow"}.get(plan.regime, "green")
         console.print(Panel(
             f"as of [bold]{plan.as_of}[/bold]    regime [bold]{plan.regime.upper()}[/bold]    "
-            f"total [bold]{_inr(plan.momentum_capital + plan.swing_capital)}[/bold]\n"
+            f"total [bold]{_inr(plan.momentum_capital + plan.swing_capital + plan.climbers_capital)}[/bold]\n"
             f"[dim]{plan.regime_hint}[/dim]",
             title="Fresh allocation plan", style=style,
         ))
@@ -427,6 +435,24 @@ class App:
             console.print(t)
             console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
                           f"{_inr(plan.swing_cash)}[/dim]")
+
+        if plan.climbers_rows:
+            deployed = sum(r.value for r in plan.climbers_rows)
+            t = Table("Ticker", "rank then→now", "Qty", "Value ₹", "Rotate≤", "ADV%", "flag",
+                      box=None, title=f"Climbers (satellite) — {_inr(plan.climbers_capital)} across "
+                                      f"{len(plan.climbers_rows)} names")
+            for r in plan.climbers_rows:
+                advp = f"{r.adv_pct*100:.0f}%" if r.adv_pct is not None else "—"
+                t.add_row(r.symbol, r.detail, f"{r.quantity:,}", f"{r.value:,.0f}",
+                          f"{r.rotation_days}d" if r.rotation_days else "—", advp, self._flag(r))
+            console.print(t)
+            console.print(f"  [dim]deployed {_inr(deployed)} · cash residue "
+                          f"{_inr(plan.climbers_cash)} · quarterly rotation · higher-risk alpha, "
+                          f"diligence the catalyst per name[/dim]")
+        elif plan.climbers_capital > 0:
+            console.print(f"  [yellow]Climbers: no accumulation candidates qualify right now "
+                          f"(rare — the filter is strict). Hold the {_inr(plan.climbers_capital)} "
+                          f"as cash or add to another sleeve.[/yellow]")
 
         if plan.overlaps:
             console.print(Panel(

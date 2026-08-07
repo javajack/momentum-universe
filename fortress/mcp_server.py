@@ -233,26 +233,29 @@ def build_server():
     def fresh_allocation(
         momentum_capital: float = 0,
         swing_capital: float = 0,
+        climbers_capital: float = 0,
         momentum_top_n: Optional[int] = None,
         hb_slots: int = 3,
         rsi_slots: int = 2,
+        climbers_top_n: int = 8,
     ) -> dict:
         """Stateless "here is Rs X, what do I buy?" — a fresh combined
         allocation for the entered amounts, with NO existing holdings. Deploys
-        `momentum_capital` via the active momentum strategy and `swing_capital`
-        via the 3+2 swing partition (either may be 0 to skip). Returns one
-        breakup with per-stock approx quantity, rupee value, stop and (swing)
-        rotation days, PLUS: overlap flags for any ticker in both sleeves
-        (avoid double-buying), an ADV fill-risk flag per slot (rupee size vs
-        the stock's 20-day traded value), and a one-line regime hint to inform
-        the split. Separate from momentum_allocation, which diffs against
-        supplied holdings."""
+        `momentum_capital` via the active momentum strategy, `swing_capital` via
+        the 3+2 swing partition, and `climbers_capital` via the SATELLITE
+        accumulation-climbers strategy (rank-velocity 1-500 band, still basing,
+        ~5 concentrated names, quarterly rotation — higher-risk validated alpha).
+        Any may be 0 to skip. Returns one breakup with per-stock approx quantity,
+        rupee value, stop and rotation days, PLUS overlap flags across all
+        sleeves, an ADV fill-risk flag per slot, and a regime hint. Separate
+        from momentum_allocation, which diffs against supplied holdings."""
         from fortress import actions as A
         with _quiet_stdout():
             p = A.fresh_allocation(
                 _load_config(), momentum_capital=momentum_capital,
-                swing_capital=swing_capital, momentum_top_n=momentum_top_n,
-                hb_slots=hb_slots, rsi_slots=rsi_slots, config_path=CONFIG_PATH)
+                swing_capital=swing_capital, climbers_capital=climbers_capital,
+                momentum_top_n=momentum_top_n, hb_slots=hb_slots, rsi_slots=rsi_slots,
+                climbers_top_n=climbers_top_n, config_path=CONFIG_PATH)
 
         def _row(r):
             return {"sleeve": r.sleeve, "symbol": r.symbol, "detail": r.detail,

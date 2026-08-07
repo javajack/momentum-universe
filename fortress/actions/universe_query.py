@@ -125,6 +125,7 @@ class ClimberRow:
     ret_12m_pct: Optional[float] = None
     above_200sma: Optional[bool] = None
     off_high_pct: Optional[float] = None   # % below the 52-week high (0 = at high; -30 = faded)
+    price: Optional[float] = None          # latest adjusted close (for sizing)
 
 
 def _climber_velocity(rank_now: int, rank_past: Optional[int], past_max: int
@@ -182,7 +183,8 @@ def _price_context(symbols: List[str], as_of: date) -> Dict[str, dict]:
         high_252 = float(c.iloc[-252:].max()) if n >= 2 else px
         out[sym] = {"r6": ret(126), "r12": ret(252),
                     "above200": (px > sma200) if sma200 else None,
-                    "off_high": (px / high_252 - 1) * 100 if high_252 else None}
+                    "off_high": (px / high_252 - 1) * 100 if high_252 else None,
+                    "price": px}
     return out
 
 
@@ -253,6 +255,7 @@ def rank_velocity(
         px = prices.get(c.symbol, {})
         c.ret_6m_pct, c.ret_12m_pct = px.get("r6"), px.get("r12")
         c.above_200sma, c.off_high_pct = px.get("above200"), px.get("off_high")
+        c.price = px.get("price")
         if exclude_ipos and c.is_ipo:
             continue
         if require_above_200sma and c.above_200sma is not True:   # base, not distress

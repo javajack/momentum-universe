@@ -33,7 +33,7 @@ one-time). Then you get an interactive menu:
 7   Momentum scan            established-momentum leaders + metrics
 8   Emerging momentum scan   rank-climbing, pre-run names (early stage)
  ALLOCATE
-9   Fresh allocation plan    enter ₹ -> momentum + swing buy plan (no holdings)
+9   Fresh allocation plan    enter ₹ -> momentum + swing + climbers buy plan (no holdings)
 0   Exit
 ```
 

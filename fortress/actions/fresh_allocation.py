@@ -47,17 +47,23 @@ class FreshAllocationPlan:
     momentum_rows: List[FreshAllocRow] = field(default_factory=list)
     swing_rows: List[FreshAllocRow] = field(default_factory=list)
     defensive_rows: List[FreshAllocRow] = field(default_factory=list)  # gold/cash buffer
+    climbers_rows: List[FreshAllocRow] = field(default_factory=list)   # satellite sleeve
     overlaps: List[str] = field(default_factory=list)
     momentum_cash: float = 0.0
     swing_cash: float = 0.0
+    climbers_capital: float = 0.0
+    climbers_cash: float = 0.0
 
 
 # ---------------------------------------------------------------------------
 # pure helpers (unit-tested)
 # ---------------------------------------------------------------------------
 
-def _overlap(momentum_syms, swing_syms) -> set:
-    return set(momentum_syms) & set(swing_syms)
+def _overlap(*symbol_lists) -> set:
+    """Symbols appearing in more than one sleeve."""
+    from collections import Counter
+    counts = Counter(s for lst in symbol_lists for s in set(lst))
+    return {s for s, c in counts.items() if c > 1}
 
 
 def _adv_warn(value: float, adv: float, max_frac: float = 0.10) -> Tuple[Optional[float], bool]:
@@ -91,20 +97,26 @@ def build_fresh_allocation(
     momentum_cash: float,
     swing_cash: float,
     defensive_rows: Optional[List[FreshAllocRow]] = None,
+    climbers_rows: Optional[List[FreshAllocRow]] = None,
+    climbers_capital: float = 0.0,
+    climbers_cash: float = 0.0,
     adv_frac: float = 0.10,
 ) -> FreshAllocationPlan:
-    """Pure assembler: tag overlap + ADV flags, attach regime hint."""
+    """Pure assembler: tag overlap (across all sleeves) + ADV flags, attach hint."""
+    climbers_rows = climbers_rows or []
     overlaps = _overlap([r.symbol for r in momentum_rows],
-                        [r.symbol for r in swing_rows])
-    for r in momentum_rows + swing_rows:
+                        [r.symbol for r in swing_rows],
+                        [r.symbol for r in climbers_rows])
+    for r in momentum_rows + swing_rows + climbers_rows:
         r.overlap = r.symbol in overlaps
         r.adv_pct, r.adv_warn = _adv_warn(r.value, adv_map.get(r.symbol, 0.0), adv_frac)
     return FreshAllocationPlan(
         as_of=as_of, regime=regime, regime_hint=_regime_hint(regime),
         momentum_capital=momentum_capital, swing_capital=swing_capital,
         momentum_rows=momentum_rows, swing_rows=swing_rows,
-        defensive_rows=defensive_rows or [],
+        defensive_rows=defensive_rows or [], climbers_rows=climbers_rows,
         overlaps=sorted(overlaps), momentum_cash=momentum_cash, swing_cash=swing_cash,
+        climbers_capital=climbers_capital, climbers_cash=climbers_cash,
     )
 
 
@@ -116,24 +128,29 @@ def fresh_allocation(
     config,
     momentum_capital: float = 0.0,
     swing_capital: float = 0.0,
+    climbers_capital: float = 0.0,
     *,
     momentum_top_n: Optional[int] = None,
     hb_slots: int = 3,
     rsi_slots: int = 2,
+    climbers_top_n: int = 8,
     as_of: Optional[date] = None,
     config_path: str = "config.yaml",
     adv_frac: float = 0.10,
 ) -> FreshAllocationPlan:
     """Build a fresh combined allocation for the entered amounts (no holdings).
 
-    momentum_capital / swing_capital: rupees to deploy in each sleeve (either
-    may be 0 to skip that sleeve).
+    momentum_capital / swing_capital / climbers_capital: rupees to deploy in
+    each sleeve (any may be 0 to skip it). The climbers sleeve is the validated
+    SATELLITE strategy — accumulation-climbers (rank-velocity, 1-500 band, still
+    basing), equal-weight across the ~5 qualifiers, quarterly rotation.
     """
     from datetime import timedelta
 
     from fortress.actions.market_state import current_market_state
     from fortress.actions.rebalance import plan_rebalance
     from fortress.actions.swing_allocation import swing_allocation_plan
+    from fortress.actions.universe_query import rank_velocity
     from fortress.nse_data_loader import load_historical_bulk
 
     ms = current_market_state(config)
@@ -176,8 +193,33 @@ def fresh_allocation(
                 stop=s.suggested_stop, stop_pct=s.stop_pct, rotation_days=s.time_stop_days))
         swing_cash = sp.cash_reserve
 
+    # Climbers satellite sleeve — accumulation-climbers, equal-weight, quarterly.
+    climbers_rows: List[FreshAllocRow] = []
+    climbers_cash = 0.0
+    if climbers_capital > 0:
+        picks, *_ = rank_velocity(
+            as_of_d, lookback_months=6, rank_lo=1, rank_hi=500, top=climbers_top_n,
+            min_turnover_cr=10.0, exclude_ipos=True, require_above_200sma=True,
+            max_6m_return=30.0, max_12m_return=60.0)
+        n = len(picks) or 1
+        per = climbers_capital / n            # equal-weight across qualifiers (~5)
+        deployed = 0.0
+        for c in picks:
+            if not c.price or c.price <= 0:
+                continue
+            qty = int(per // c.price)
+            if qty <= 0:
+                continue
+            val = qty * c.price
+            traj = f"new→{c.rank_now}" if c.new_entrant else f"{c.rank_past}→{c.rank_now}"
+            climbers_rows.append(FreshAllocRow(
+                sleeve="climbers", symbol=c.symbol, detail=traj,
+                quantity=qty, value=val, rotation_days=63))   # ~quarterly
+            deployed += val
+        climbers_cash = max(0.0, climbers_capital - deployed)
+
     # ADV map for the union of tickers (20-day average traded value)
-    syms = list({r.symbol for r in momentum_rows + swing_rows})
+    syms = list({r.symbol for r in momentum_rows + swing_rows + climbers_rows})
     adv_map: Dict[str, float] = {}
     if syms:
         end = as_of_d
@@ -188,7 +230,10 @@ def fresh_allocation(
 
     return build_fresh_allocation(
         momentum_rows=momentum_rows, swing_rows=swing_rows, adv_map=adv_map,
-        defensive_rows=defensive_rows, as_of=as_of_d, regime=regime,
+        defensive_rows=defensive_rows, climbers_rows=climbers_rows,
+        as_of=as_of_d, regime=regime,
         momentum_capital=momentum_capital, swing_capital=swing_capital,
-        momentum_cash=momentum_cash, swing_cash=swing_cash, adv_frac=adv_frac,
+        climbers_capital=climbers_capital,
+        momentum_cash=momentum_cash, swing_cash=swing_cash,
+        climbers_cash=climbers_cash, adv_frac=adv_frac,
     )
