@@ -175,7 +175,7 @@ paths:
   universe_file: "stock-universe.json"  # legacy, unused after Phase 4
   log_dir: "logs"
   data_cache: ".cache"
-  sectors_file: "stock-sectors.json"
+  sectors_file: "data/sector_map.json"
   market_metadata_file: "market-metadata.json"
 
 # Tradable universe — rank window from nse-universe's 6-month median turnover ranking.
