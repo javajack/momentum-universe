@@ -155,6 +155,10 @@ def fresh_allocation(
 
     ms = current_market_state(config)
     regime = ms.regime
+    # ms.as_of tracks the index (NIFTY/VIX) data, which can lag the equity bhav
+    # data the sleeves actually select on. Prefer the real equity-data date (taken
+    # from the momentum leg below) so the plan header + climbers align with the
+    # picks; ms.as_of is only a fallback (regime is still read as of the index data).
     as_of_d = as_of or ms.as_of
 
     # gold/cash defensive ETFs from the regime overlay are shown separately,
@@ -166,6 +170,8 @@ def fresh_allocation(
     momentum_cash = 0.0
     if momentum_capital > 0:
         plan = plan_rebalance(config, momentum_capital, holdings={}, top_n=momentum_top_n)
+        if as_of is None:
+            as_of_d = plan.as_of          # real latest equity-data date the sleeves select on
         deployed = 0.0
         for t in plan.targets:
             row = FreshAllocRow(

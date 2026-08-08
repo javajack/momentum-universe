@@ -364,8 +364,12 @@ class App:
             f"strategy [bold]{res.strategy}[/bold]   universe [bold]v{res.version[-1]} "
             f"ranks {list(res.rank_range)}[/bold]   as of [bold]{res.as_of}[/bold]   "
             f"[dim]{res.total_passing} names passed entry filters[/dim]",
-            title="Momentum scan", style="cyan",
+            title="Momentum scan — RANKING (leaderboard)", style="cyan",
         ))
+        console.print("[yellow]This is the RAW momentum ranking (top-N by score). It is NOT the "
+                      "buy list — the actual sector-capped, regime-scaled portfolio is menu 9's "
+                      "Momentum sleeve (same as the backtest), which drops over-weighted sectors "
+                      "and adds diversifiers, so its names differ by design.[/yellow]")
         t = Table("#", "Ticker", "Sector", "Score", "52W%", "6M", "12M", "₹Cr/day", "200SMA", box=None)
         for i, s in enumerate(res.stocks, 1):
             t.add_row(
