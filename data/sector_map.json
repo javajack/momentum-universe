@@ -25809,11 +25809,10 @@
    "sub_sector": "NON_EQUITY"
   },
   "ECAPINSURE": {
-   "sector": "FINANCE",
-   "source": "translated",
-   "from_label": "FINANCIALS",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "FINANCE"
+   "sub_sector": "NON_EQUITY"
   },
   "ECEIND": {
    "sector": "UNCLASSIFIED",
@@ -26534,11 +26533,10 @@
    "sub_sector": "NON_EQUITY"
   },
   "GROWWMETAL": {
-   "sector": "IRON_AND_STEEL",
-   "source": "translated",
-   "from_label": "METALS_MINING",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "IRON_AND_STEEL"
+   "sub_sector": "NON_EQUITY"
   },
   "GROWWMOM50": {
    "sector": "NON_EQUITY",
@@ -26571,18 +26569,16 @@
    "sub_sector": "NON_EQUITY"
   },
   "GROWWPOWER": {
-   "sector": "POWER",
-   "source": "translated",
-   "from_label": "UTILITIES",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "POWER"
+   "sub_sector": "NON_EQUITY"
   },
   "GROWWRAIL": {
-   "sector": "INFRASTRUCTURE",
-   "source": "translated",
-   "from_label": "INFRASTRUCTURE",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "INFRASTRUCTURE"
+   "sub_sector": "NON_EQUITY"
   },
   "GROWWRLTY": {
    "sector": "NON_EQUITY",
@@ -26824,11 +26820,10 @@
    "sub_sector": "NON_EQUITY"
   },
   "HDFCNIFIT": {
-   "sector": "INFORMATION_TECHNOLOGY",
-   "source": "translated",
-   "from_label": "INFORMATION_TECHNOLOGY",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "INFORMATION_TECHNOLOGY"
+   "sub_sector": "NON_EQUITY"
   },
   "HDFCNIFTY": {
    "sector": "NON_EQUITY",
@@ -28234,11 +28229,10 @@
    "sub_sector": "NON_EQUITY"
   },
   "LICNFNHGP": {
-   "sector": "FINANCE",
-   "source": "translated",
-   "from_label": "FINANCIALS",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "FINANCE"
+   "sub_sector": "NON_EQUITY"
   },
   "LICNMFET": {
    "sector": "FINANCE",
@@ -28248,11 +28242,10 @@
    "sub_sector": "FINANCE"
   },
   "LICNMID100": {
-   "sector": "FINANCE",
-   "source": "translated",
-   "from_label": "FINANCIALS",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "FINANCE"
+   "sub_sector": "NON_EQUITY"
   },
   "LINCPEN": {
    "sector": "UNCLASSIFIED",
@@ -28462,11 +28455,10 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "MAHKTECH": {
-   "sector": "INFORMATION_TECHNOLOGY",
-   "source": "translated",
-   "from_label": "INFORMATION_TECHNOLOGY",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "INFORMATION_TECHNOLOGY"
+   "sub_sector": "NON_EQUITY"
   },
   "MAJESCO": {
    "sector": "INFORMATION_TECHNOLOGY",
@@ -28690,11 +28682,10 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "MIDSMALL": {
-   "sector": "RETAILING",
-   "source": "translated",
-   "from_label": "CONSUMER_DISCRETIONARY",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "RETAILING"
+   "sub_sector": "NON_EQUITY"
   },
   "MINDAIND": {
    "sector": "AUTOMOBILE_AND_ANCILLARIES",
@@ -28747,18 +28738,16 @@
    "sub_sector": "NON_EQUITY"
   },
   "MOCAPITAL": {
-   "sector": "FINANCE",
-   "source": "translated",
-   "from_label": "FINANCIALS",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "FINANCE"
+   "sub_sector": "NON_EQUITY"
   },
   "MODEFENCE": {
-   "sector": "CAPITAL_GOODS",
-   "source": "translated",
-   "from_label": "INDUSTRIALS",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "CAPITAL_GOODS"
+   "sub_sector": "NON_EQUITY"
   },
   "MODISNME": {
    "sector": "UNCLASSIFIED",
@@ -28767,11 +28756,10 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "MOENERGY": {
-   "sector": "POWER",
-   "source": "translated",
-   "from_label": "UTILITIES",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "POWER"
+   "sub_sector": "NON_EQUITY"
   },
   "MOGSEC": {
    "sector": "NON_EQUITY",
@@ -28780,11 +28768,10 @@
    "sub_sector": "NON_EQUITY"
   },
   "MOHEALTH": {
-   "sector": "HEALTHCARE",
-   "source": "translated",
-   "from_label": "HEALTHCARE",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "HEALTHCARE"
+   "sub_sector": "NON_EQUITY"
   },
   "MOHOTAIND": {
    "sector": "UNCLASSIFIED",
@@ -28793,11 +28780,10 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "MOINFRA": {
-   "sector": "INFRASTRUCTURE",
-   "source": "translated",
-   "from_label": "INFRASTRUCTURE",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "INFRASTRUCTURE"
+   "sub_sector": "NON_EQUITY"
   },
   "MOLOWVOL": {
    "sector": "NON_EQUITY",
@@ -28923,11 +28909,10 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "MOREALTY": {
-   "sector": "REALTY",
-   "source": "translated",
-   "from_label": "REAL_ESTATE",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "REALTY"
+   "sub_sector": "NON_EQUITY"
   },
   "MOREPENHTL": {
    "sector": "UNCLASSIFIED",
@@ -28955,11 +28940,10 @@
    "sub_sector": "NON_EQUITY"
   },
   "MOSMALL250": {
-   "sector": "RETAILING",
-   "source": "translated",
-   "from_label": "CONSUMER_DISCRETIONARY",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "RETAILING"
+   "sub_sector": "NON_EQUITY"
   },
   "MOTHERSUMI": {
    "sector": "AUTOMOBILE_AND_ANCILLARIES",
@@ -28969,11 +28953,10 @@
    "sub_sector": "AUTOMOBILE_AND_ANCILLARIES"
   },
   "MOTOUR": {
-   "sector": "AUTOMOBILE_AND_ANCILLARIES",
-   "source": "translated",
-   "from_label": "AUTOMOBILES",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "AUTOMOBILE_AND_ANCILLARIES"
+   "sub_sector": "NON_EQUITY"
   },
   "MOVALUE": {
    "sector": "NON_EQUITY",
@@ -30818,18 +30801,16 @@
    "sub_sector": "RETAILING"
   },
   "SMALL250": {
-   "sector": "RETAILING",
-   "source": "translated",
-   "from_label": "CONSUMER_DISCRETIONARY",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "RETAILING"
+   "sub_sector": "NON_EQUITY"
   },
   "SMALLCAP": {
-   "sector": "RETAILING",
-   "source": "translated",
-   "from_label": "CONSUMER_DISCRETIONARY",
+   "sector": "NON_EQUITY",
+   "source": "non_equity",
    "updated": "2026-08-08",
-   "sub_sector": "RETAILING"
+   "sub_sector": "NON_EQUITY"
   },
   "SMLISUZU": {
    "sector": "AUTOMOBILE_AND_ANCILLARIES",

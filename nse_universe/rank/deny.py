@@ -60,6 +60,7 @@ _NON_EQUITY_EXPLICIT: frozenset[str] = frozenset({
 # suffix rules above (verified NON_EQUITY: absent from StockEdge's equity
 # securities master + fund-named). Evicts them from the ranked universe.
 _NON_EQUITY_INDEX_ETF: frozenset[str] = frozenset({
+    'ECAPINSURE', 'GROWWMETAL', 'GROWWPOWER', 'GROWWRAIL', 'HDFCNIFIT', 'LICNFNHGP', 'LICNMID100', 'MAHKTECH', 'MIDSMALL', 'MOCAPITAL', 'MODEFENCE', 'MOENERGY', 'MOHEALTH', 'MOINFRA', 'MOREALTY', 'MOSMALL250', 'MOTOUR', 'SMALL250', 'SMALLCAP',
     'ABSLNN50ET', 'ABSLPSE', 'AONEGOLD', 'AONENIFTY', 'AONETMMQ50', 'AONETOTAL',
     'AXISNIFTY', 'AXISVALUE', 'AXSENSEX', 'BANKBETA', 'BANKNIFTY1', 'BANKPSU', 'BBETF0432',
     'BBNPPGOLD', 'BFSI', 'BSLNIFTY', 'BSLSENETFG', 'CHOICEGOLD', 'DIVIDEND', 'EBANK',
