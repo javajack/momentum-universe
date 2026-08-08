@@ -24269,10 +24269,11 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "ABGSEC": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "SHIP_BUILDING",
+   "industry": "SHIP_BUILDING",
+   "sub_sector": "SHIP_BUILDING",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "ABGSHIP": {
    "sector": "CAPITAL_GOODS",
@@ -24378,10 +24379,11 @@
    "sub_sector": "HEALTHCARE"
   },
   "ADORWELD": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "CAPITAL_GOODS",
+   "industry": "ELECTRODES_AND_WELDING_EQUIPMENT",
+   "sub_sector": "ELECTRODES_AND_WELDING_EQUIPMENT",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "ADVANTA": {
    "sector": "FAST_MOVING_CONSUMER_GOODS",
@@ -24784,10 +24786,11 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "ATFL": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "FAST_MOVING_CONSUMER_GOODS",
+   "industry": "CONSUMER_FOOD",
+   "sub_sector": "CONSUMER_FOOD",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "ATNINT": {
    "sector": "UNCLASSIFIED",
@@ -26396,10 +26399,11 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "GLS": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "HEALTHCARE",
+   "industry": "PHARMACEUTICALS_AND_DRUGS",
+   "sub_sector": "PHARMACEUTICALS_AND_DRUGS",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "GMRFER": {
    "sector": "UNCLASSIFIED",
@@ -28985,10 +28989,11 @@
    "sub_sector": "INFORMATION_TECHNOLOGY"
   },
   "MRO-TEK": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "REALTY",
+   "industry": "CONSTRUCTION_REAL_ESTATE",
+   "sub_sector": "CONSTRUCTION_REAL_ESTATE",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "MSCIINDIA": {
    "sector": "NON_EQUITY",
@@ -30391,10 +30396,11 @@
    "sub_sector": "IRON_AND_STEEL"
   },
   "SATINDLTD": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "DIVERSIFIED",
+   "industry": "DIVERSIFIED",
+   "sub_sector": "DIVERSIFIED",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "SATNAMOVER": {
    "sector": "UNCLASSIFIED",
@@ -31503,10 +31509,11 @@
    "sub_sector": "UNCLASSIFIED"
   },
   "TIMESGTY": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "FINANCE",
+   "industry": "FINANCE_NBFC",
+   "sub_sector": "FINANCE_NBFC",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "TINPLATE": {
    "sector": "IRON_AND_STEEL",
@@ -31572,10 +31579,11 @@
    "sub_sector": "HEALTHCARE"
   },
   "TTL": {
-   "sector": "UNCLASSIFIED",
-   "source": "unclassified",
-   "updated": "2026-08-08",
-   "sub_sector": "UNCLASSIFIED"
+   "sector": "TEXTILE",
+   "industry": "TEXTILE",
+   "sub_sector": "TEXTILE",
+   "source": "researched",
+   "updated": "2026-08-08"
   },
   "TUBEINVEST": {
    "sector": "CAPITAL_GOODS",

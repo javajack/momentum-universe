@@ -91,6 +91,15 @@ _CURATED_EQUITY = {
     "SASTASUNDR": "RETAILING",                 # Sastasundar (online pharmacy/e-com) [low-conf]
     "SUNDARMHLD": "AGRICULTURE",               # Sundaram Holdings (plantations) [low-conf]
     "GEECEE": "REALTY",
+    # live names StockEdge search couldn't resolve by ticker (2nd-pass residual)
+    "ADORWELD": "CAPITAL_GOODS",               # Ador Welding
+    "ATFL": "FAST_MOVING_CONSUMER_GOODS",      # Agro Tech Foods
+    "GLS": "HEALTHCARE",                        # Glenmark Life Sciences (API)
+    "MRO-TEK": "REALTY",                        # MRO-TEK Realty (rebranded from networking)
+    "TIMESGTY": "FINANCE",                      # Times Guaranty (NBFC/leasing)
+    "TTL": "TEXTILE",                           # T T Limited (hosiery/garments)
+    "SATINDLTD": "DIVERSIFIED",                 # Sat Industries (holding) [low-conf]
+    "ABGSEC": "SHIP_BUILDING",                  # ABG Shipyard security (defunct)
 }
 
 
